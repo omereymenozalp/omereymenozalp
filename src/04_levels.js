@@ -68,6 +68,8 @@ function builder(A) {
     qsand(x0, x1) { return api.fill(x0, 13, x1, 14, T.QSAND); },
     sink(x, y, w = 2) { A.spawns.push({ type: 'sinkplat', x, y, w }); return api; },
     flag(x) { A.flag = { x }; set(x, 12, T.SOLID); return api; },
+    // BÜYÜK YILDIZ number i (0..2, unique per level across all its areas); x, y = top-left tile (y may be < 0: above the screen)
+    star(i, x, y) { A.spawns.push({ type: 'bigstar', x, y, idx: i }); return api; },
     castle(x) { A.castle = { x }; return api; },
   };
   return api;
@@ -164,6 +166,7 @@ const LEVELS = [
       b.row(74, 9, 'BMB');
       b.row(78, 5, 'BBBBBBBB');
       b.e('kestane', 80, 4).e('kestane', 83, 4);
+      b.star(1, 86, 4); // off the main path: at the far end of the high brick road
       b.row(92, 5, 'BBB?'); b.row(95, 9, 'C');
       b.e('beetle', 98, 12);
       b.row(101, 9, 'BS');
@@ -174,6 +177,7 @@ const LEVELS = [
       b.row(128, 5, 'B??B'); b.row(129, 9, 'BB');
       b.stairs(134, 4, 1); b.stairs(140, 4, -1);
       b.stairs(145, 5, 1); b.fill(150, 8, 150, 12, T.SOLID);
+      b.set(151, 4, T.COIN).star(2, 152, 2); // skill: a full jump off the staircase top, high over the gap
       b.stairs(153, 4, -1);
       b.pipe(161, 2); b.e('kestane', 165, 12).e('kestane', 167, 12);
       b.row(169, 9, 'BB?B');
@@ -186,6 +190,7 @@ const LEVELS = [
       rb.ground(0, 27).fill(0, 2, 27, 2, T.BRICK).fill(0, 3, 0, 12, T.BRICK).fill(27, 3, 27, 12, T.BRICK);
       rb.fill(5, 11, 19, 12, T.BRICK);
       rb.coins(5, 10, 15); rb.coins(6, 7, 13); rb.coins(8, 4, 9);
+      rb.star(0, 20, 5); // secret: up in the corner of the bonus room
       rb.pipe(23, 2, { warp: { area: 0, tx: 176, ty: 11, mode: 'up' } });
       autoDecor(R, 5);
       return { areas: [A, R], start: { area: 0, x: 3, y: 12 }, checkpoint: 102 };
@@ -209,9 +214,11 @@ const LEVELS = [
       b.e('kestane', 36, 12).e('kestane', 39, 12);
       b.pipe(50, 3, { piranha: true }); b.e('spiky', 55, 12); b.pipe(58, 2, { piranha: true }); b.e('spiky', 64, 12);
       b.row(66, 9, 'B?BCB'); b.row(71, 5, 'H');
+      b.star(0, 67, 5); // off the main path: above the brick row
       b.e('beetle', 75, 12);
       b.plat(81, 9, { w: 3, axis: 'y', dist: 40, period: 220 });
       b.coins(81, 4, 3);
+      b.star(1, 84, 3); // skill: jump off the lift at the top of its ride
       b.row(90, 9, 'BBBBBBBB'); b.coins(90, 8, 8);
       b.e('kestane', 94, 12).e('kestane', 96, 12);
       b.row(104, 9, 'S');
@@ -221,10 +228,19 @@ const LEVELS = [
       b.pipe(139, 2, { piranha: true });
       b.row(144, 6, 'BBBBBB'); b.coins(144, 5, 6);
       b.e('kestane', 146, 12).e('kestane', 148, 12);
+      // secret: an ordinary-looking pipe drops into a crystal grotto; its pipe comes back up past the stairs
+      b.pipe(155, 2, { warp: { area: 1, tx: 3, ty: 3, mode: 'drop' } });
       b.stairs(160, 6, 1); b.fill(166, 7, 166, 12, T.SOLID);
+      b.pipe(170, 2);
       b.flag(176); b.castle(180);
       autoDecor(A, 22);
-      return { areas: [A], start: { area: 0, x: 3, y: 12 }, checkpoint: 100 };
+      const R = newArea('cave', 24), rb = builder(R);
+      rb.ground(0, 23).fill(0, 2, 23, 2, T.BRICK).fill(0, 3, 0, 12, T.BRICK).fill(23, 3, 23, 12, T.BRICK);
+      rb.row(4, 10, 'BB').row(8, 7, 'BBB').coins(4, 9, 2).coins(8, 6, 3).coins(11, 11, 5);
+      rb.star(2, 13, 4);
+      rb.pipe(19, 2, { warp: { area: 0, tx: 170, ty: 11, mode: 'up' } });
+      autoDecor(R, 8);
+      return { areas: [A, R], start: { area: 0, x: 3, y: 12 }, checkpoint: 100 };
     }
   },
   {
@@ -233,6 +249,7 @@ const LEVELS = [
       b.ground(0, 14);
       b.tree(17, 10, 5).coins(18, 8, 3);
       b.tree(24, 7, 4).e('kestane', 26, 6);
+      b.row(29, 4, 'ccc').star(0, 30, 3); // off the main path: a little cloud high above the trees
       b.tree(31, 11, 6).e('beetle', 34, 10);
       b.tree(40, 8, 5).coins(41, 5, 3);
       b.plat(48, 9, { w: 3, axis: 'x', dist: 32, period: 200 });
@@ -243,10 +260,12 @@ const LEVELS = [
       b.e('kestane', 79, 10);
       b.tree(86, 8, 4);
       b.fall(92, 9).fall(96, 8).fall(100, 9);
+      b.star(1, 98, 3); // skill: jump up from a falling platform before it drops
       b.tree(105, 10, 6);
       b.e('bee', 111, 6);
       b.plat(113, 8, { w: 3, axis: 'y', dist: 36, period: 200 });
       b.tree(119, 7, 5).row(121, 3, 'M');
+      b.coins(121, 0, 1).coins(121, 1, 1).star(2, 121, -1); // secret: stand on the used M block and jump above the screen
       b.e('bee', 124, 5);
       b.tree(125, 11, 7);
       b.plat(133, 8, { w: 3, axis: 'x', dist: 40, period: 240 });
@@ -276,6 +295,7 @@ const LEVELS = [
       b.row(38, 6, 'BBBB?BBBBBBBBB');
       b.e('icicle', 40, 7).e('icicle', 43, 7).e('icicle', 47, 7).e('icicle', 50, 7);
       b.ice(41, 52).coins(44, 10, 3);
+      b.set(37, 9, T.HIDDEN).star(0, 51, 5); // secret: an invisible block leads onto the roof of the icicle hall
       b.e('penguin', 56, 12);
       b.row(58, 9, 'B?B');
       // snowy ledges + hidden 1UP
@@ -294,8 +314,10 @@ const LEVELS = [
       b.row(121, 9, 'BBBB'); b.row(123, 5, '?M?');
       b.e('penguin', 119, 12).e('penguin', 127, 12).e('spiky', 131, 12).e('penguin', 135, 12);
       b.row(130, 6, 'BBBBB');
+      b.star(1, 126, 4); // off the main path: up beside the ?M? blocks
       b.e('icicle', 130, 7).e('icicle', 132, 7).e('icicle', 134, 7);
       // finale
+      b.star(2, 144, 7); // skill: a full running jump peaks right over the last pit
       b.e('penguin', 152, 12);
       b.row(155, 9, 'B?B?B');
       b.ice(159, 168);
@@ -336,15 +358,18 @@ const LEVELS = [
       b.row(76, 6, '??C??');
       b.coins(75, 8, 9);
       b.e('scorpion', 82, 10);
+      b.star(0, 73, 7); // secret: in the corner of the pyramid's treasure room
       b.coins(76, 3, 7);
       // checkpoint, then a quicksand field with stepping slabs
       b.e('scorpion', 97, 12);
       b.qsand(101, 111).sink(103, 11).sink(107, 10);
+      b.star(1, 109, 5); // skill: jump high off the sinking slab
       b.ground(112, 150);
       b.row(116, 9, 'B?S?B');
       b.e('scorpion', 122, 12).e('scorpion', 126, 12);
       b.row(129, 8, '====').coins(129, 7, 4);
       b.row(134, 5, '====').coins(134, 4, 4);
+      b.star(2, 140, 2); // off the main path: from the high ledge
       b.e('tumble', 140, 11);
       b.row(144, 9, '?M?');
       b.qsand(151, 158).sink(152, 11).sink(155, 10);
@@ -368,6 +393,7 @@ const LEVELS = [
       b.set(27, 9, T.SOLID).e('firebar', 27, 9, { len: 6, speed: 0.035 });
       b.e('spiky', 32, 12).e('spiky', 36, 12);
       b.lava(41, 46).row(43, 10, '##').e('podoboo', 42, 14).e('podoboo', 45, 14, { delay: 60 });
+      b.star(0, 45, 7); // skill: over the lava between the lava bubbles
       b.ground(47, 80);
       b.fill(52, 4, 64, 7, T.CASTLE);
       b.set(58, 8, T.SOLID).e('firebar', 58, 8, { len: 5, speed: -0.04 });
@@ -375,9 +401,11 @@ const LEVELS = [
       b.lava(81, 88).plat(83, 10, { w: 3, axis: 'x', dist: 40, period: 220 });
       b.ground(89, 120);
       b.row(93, 9, 'U');
+      b.star(1, 91, 5); // off the main path: up from the 1UP block
       b.set(98, 9, T.SOLID).e('firebar', 98, 9, { len: 6, speed: -0.04 });
       b.set(106, 6, T.SOLID).e('firebar', 106, 6, { len: 5, speed: 0.045 });
       b.e('spiky', 102, 12).e('beetle', 111, 12).e('kestane', 115, 12);
+      b.set(114, 9, T.HIDDEN).fill(115, 3, 116, 3, T.EMPTY).star(2, 115, 3); // secret: an invisible block up to a notch in the ceiling
       b.lava(121, 123).e('podoboo', 122, 14, { delay: 30 });
       b.fill(124, 10, 130, 14, T.GROUND);
       b.lava(131, 147).fill(131, 10, 147, 10, T.BRIDGE);
@@ -407,6 +435,7 @@ const LEVELS = [
       b.e('jelly', 43, 11);
       // first trench (don't sink!)
       b.coins(46, 8, 5);
+      b.star(0, 48, 12); // off the main path: deep down in the trench
       b.e('fish', 52, 9);
       b.row(54, 8, 'BBPBB');
       b.e('puffer', 58, 11);
@@ -432,6 +461,7 @@ const LEVELS = [
       b.fill(130, 9, 131, 12, T.SOLID).fill(136, 0, 137, 5, T.SOLID).fill(142, 8, 143, 12, T.SOLID);
       b.coins(130, 7, 2).coins(142, 6, 2);
       b.e('puffer', 134, 9).e('puffer', 140, 5);
+      b.star(2, 136, 6); // skill: under the hanging rock, between two pufferfish
       b.row(147, 8, '?M?');
       b.e('fish', 152, 4).e('fish', 154, 4).e('fish', 156, 4).e('fish', 153, 10).e('fish', 155, 10);
       b.e('jelly', 158, 12).e('jelly', 162, 12).e('jelly', 166, 12);
@@ -452,6 +482,7 @@ const LEVELS = [
       rb.ground(0, 27).fill(0, 0, 27, 1, T.SOLID).fill(0, 2, 0, 12, T.SOLID).fill(27, 2, 27, 12, T.SOLID);
       rb.coins(4, 11, 15).coins(5, 8, 13).coins(7, 5, 9);
       rb.row(12, 3, 'U');
+      rb.star(1, 25, 4); // secret: in the grotto
       rb.pipe(23, 2, { warp: { area: 0, tx: 112, ty: 11, mode: 'up' } });
       autoDecor(R, 13);
       return { areas: [A, B, R], start: { area: 0, x: 3, y: 12 }, checkpoint: 92 };

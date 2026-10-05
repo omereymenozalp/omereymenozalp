@@ -265,6 +265,7 @@ const SFX = {
   swim: (S, t) => { S.tone(240, t, 0.13, { wave: 'sine', slide: 560, slideT: 0.11, vol: 0.16 }); S.noiseHit(t, 0.07, { freq: 1300, type: 'bandpass', vol: 0.05 }); },
   puff: (S, t) => { S.tone(160, t, 0.22, { duty: 0.5, slide: 520, slideT: 0.2, vol: 0.12 }); S.noiseHit(t, 0.12, { freq: 700, type: 'lowpass', vol: 0.08 }); },
   record: (S, t) => { ['C6', 'E6', 'G6', 'E6', 'G6', 'C7'].forEach((x, i) => S.tone(nf(x), t + i * 0.07, i === 5 ? 0.3 : 0.08, { duty: 0.25, vol: 0.12 })); },
+  bigstar: (S, t) => { ['E6', 'G6', 'C7', 'E7', 'G7', 'C8'].forEach((x, i) => S.tone(nf(x), t + i * 0.055, 0.1, { duty: 0.25, vol: 0.12 })); S.tone(nf('C7'), t + 0.33, 0.5, { duty: 0.125, vol: 0.1, vib: true, decay: 0.15, sus: 0.4 }); S.tone(nf('G7'), t + 0.36, 0.45, { duty: 0.5, vol: 0.05, decay: 0.12, sus: 0.3 }); S.noiseHit(t + 0.3, 0.25, { freq: 7000, vol: 0.05 }); },
   shatter: (S, t) => { S.noiseHit(t, 0.18, { freq: 4000, sweep: 9000, type: 'bandpass', vol: 0.18 }); [2093, 2637, 3136].forEach((f, i) => S.tone(f, t + i * 0.03, 0.06, { duty: 0.125, vol: 0.06 })); },
 };
 

@@ -379,6 +379,7 @@ const SFX = {
   swim: (S, t) => { S.tone(240, t, 0.13, { wave: 'sine', slide: 560, slideT: 0.11, vol: 0.16 }); S.noiseHit(t, 0.07, { freq: 1300, type: 'bandpass', vol: 0.05 }); },
   puff: (S, t) => { S.tone(160, t, 0.22, { duty: 0.5, slide: 520, slideT: 0.2, vol: 0.12 }); S.noiseHit(t, 0.12, { freq: 700, type: 'lowpass', vol: 0.08 }); },
   record: (S, t) => { ['C6', 'E6', 'G6', 'E6', 'G6', 'C7'].forEach((x, i) => S.tone(nf(x), t + i * 0.07, i === 5 ? 0.3 : 0.08, { duty: 0.25, vol: 0.12 })); },
+  bigstar: (S, t) => { ['E6', 'G6', 'C7', 'E7', 'G7', 'C8'].forEach((x, i) => S.tone(nf(x), t + i * 0.055, 0.1, { duty: 0.25, vol: 0.12 })); S.tone(nf('C7'), t + 0.33, 0.5, { duty: 0.125, vol: 0.1, vib: true, decay: 0.15, sus: 0.4 }); S.tone(nf('G7'), t + 0.36, 0.45, { duty: 0.5, vol: 0.05, decay: 0.12, sus: 0.3 }); S.noiseHit(t + 0.3, 0.25, { freq: 7000, vol: 0.05 }); },
   shatter: (S, t) => { S.noiseHit(t, 0.18, { freq: 4000, sweep: 9000, type: 'bandpass', vol: 0.18 }); [2093, 2637, 3136].forEach((f, i) => S.tone(f, t + i * 0.03, 0.06, { duty: 0.125, vol: 0.06 })); },
 };
 
@@ -949,6 +950,46 @@ function makeAxe() {
 }
 function makeHeart() { return fromStrings(['.KK.KK.', 'KRRKRRK', 'KRWRRRK', 'KRRRRRK', '.KRRRK.', '..KRK..', '...K...'], { K, R: '#ff4a6a', W: '#ffd0d8' }); }
 function makeMiniCoin() { return fromStrings(['.KKK.', 'KYYOK', 'KYWOK', 'KYYOK', 'KYYOK', 'KYYOK', '.KKK.'], { K: '#7a4a00', Y: '#ffd84a', O: '#f8b800', W: '#fff8c8' }); }
+// "BÜYÜK YILDIZ": a big gold star coin (24x24) with an embossed smiling star; 4 shimmer frames,
+// a see-through ghost for stars saved in an earlier run, and 7x7 HUD / title icons (full, empty)
+function makeBigStar() {
+  const inStar = (x, y, cx, cy, ro, ri) => {
+    const pts = [];
+    for (let i = 0; i < 10; i++) { const r = i % 2 ? ri : ro, a = -Math.PI / 2 + i * Math.PI / 5; pts.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]); }
+    let ins = false;
+    for (let i = 0, j = 9; i < 10; j = i++) {
+      const [xi, yi] = pts[i], [xj, yj] = pts[j];
+      if ((yi > y + .5) !== (yj > y + .5) && x + .5 < (xj - xi) * (y + .5 - yi) / (yj - yi) + xi) ins = !ins;
+    }
+    return ins;
+  };
+  const body = (p, C) => {
+    p.ell(12, 12, 10.6, 10.6, C.rim);
+    p.ell(12, 12, 9.2, 9.2, C.ring);
+    p.ell(12, 12, 7.9, 7.9, C.face);
+    const S = (x, y) => inStar(x, y, 12, 12.2, 7.8, 3.4);
+    p.paint((x, y) => !S(x, y) && (S(x - 1, y) || S(x + 1, y) || S(x, y - 1) || S(x, y + 1) || S(x - 1, y - 1)), C.shade); // engraved edge + emboss shadow
+    p.paint(S, C.star);
+    p.paint((x, y) => S(x, y) && x + y < 20 && !inStar(x, y, 12, 12.2, 5.6, 2.3), C.hi);
+    p.paint((x, y) => S(x, y) && x + y > 27, C.low);
+    if (C.eye) { p.px(10, 11, C.eye); p.px(10, 12, C.eye); p.px(13, 11, C.eye); p.px(13, 12, C.eye); p.px(10, 14, C.mouth); p.px(11, 15, C.mouth); p.px(12, 15, C.mouth); p.px(13, 14, C.mouth); }
+  };
+  const GOLD = { rim: '#c86a00', ring: '#f8b800', face: '#ffc830', shade: '#b86a00', star: '#fff4a0', hi: '#ffffff', low: '#ffe070', eye: K, mouth: '#a8361c' };
+  const fr = [];
+  for (let f = 0; f < 4; f++) {
+    const p = new Pix(24, 24);
+    body(p, GOLD);
+    p.paint((x, y) => Math.hypot(x + .5 - 12, y + .5 - 12) > 9.4 && Math.hypot(x + .5 - 12, y + .5 - 12) < 10.6 && x + y < 16, '#fff8c8'); // rim glint
+    if (f < 3) { const d = 6 + f * 7; p.paint((x, y) => Math.abs(x - y - (d - 12)) < 1.2 && p.get(x, y) !== c32(K), f === 1 ? '#ffffff' : '#fff8c8'); } // shimmer sweeps across
+    p.outline('#5a2e00');
+    fr.push(p.canvas());
+  }
+  const g = new Pix(24, 24);
+  body(g, { rim: '#9ad8ff80', ring: '#5aa8e855', face: '#5aa8e83a', shade: '#2a5aa860', star: '#d8f2ffa0', hi: '#ffffffb0', low: '#b8e2ffa0', eye: '#2a5aa8c0', mouth: '#2a5aa8a0' });
+  g.outline('#e8f8ffb0');
+  const icon = (Y, W, O) => fromStrings(['...K...', '..KYK..', 'KKKYKKK', 'KYYWYYK', '.KYYYK.', 'KYYKYYK', 'KK...KK'], { K: O, Y, W });
+  return { fr, ghost: g.canvas(), icon: icon('#ffd84a', '#fff8c8', K), iconOff: icon('#5a4e7e', '#6a5e8e', K) };
+}
 function makeDebris(col, dark) {
   const p = new Pix(8, 8); p.ell(4, 4, 3.4, 3.4, col); p.paint((x, y) => x + y > 7, dark); p.outline(K); return p.canvas();
 }
@@ -1852,6 +1893,8 @@ function builder(A) {
     qsand(x0, x1) { return api.fill(x0, 13, x1, 14, T.QSAND); },
     sink(x, y, w = 2) { A.spawns.push({ type: 'sinkplat', x, y, w }); return api; },
     flag(x) { A.flag = { x }; set(x, 12, T.SOLID); return api; },
+    // BÜYÜK YILDIZ number i (0..2, unique per level across all its areas); x, y = top-left tile (y may be < 0: above the screen)
+    star(i, x, y) { A.spawns.push({ type: 'bigstar', x, y, idx: i }); return api; },
     castle(x) { A.castle = { x }; return api; },
   };
   return api;
@@ -1948,6 +1991,7 @@ const LEVELS = [
       b.row(74, 9, 'BMB');
       b.row(78, 5, 'BBBBBBBB');
       b.e('kestane', 80, 4).e('kestane', 83, 4);
+      b.star(1, 86, 4); // off the main path: at the far end of the high brick road
       b.row(92, 5, 'BBB?'); b.row(95, 9, 'C');
       b.e('beetle', 98, 12);
       b.row(101, 9, 'BS');
@@ -1958,6 +2002,7 @@ const LEVELS = [
       b.row(128, 5, 'B??B'); b.row(129, 9, 'BB');
       b.stairs(134, 4, 1); b.stairs(140, 4, -1);
       b.stairs(145, 5, 1); b.fill(150, 8, 150, 12, T.SOLID);
+      b.set(151, 4, T.COIN).star(2, 152, 2); // skill: a full jump off the staircase top, high over the gap
       b.stairs(153, 4, -1);
       b.pipe(161, 2); b.e('kestane', 165, 12).e('kestane', 167, 12);
       b.row(169, 9, 'BB?B');
@@ -1970,6 +2015,7 @@ const LEVELS = [
       rb.ground(0, 27).fill(0, 2, 27, 2, T.BRICK).fill(0, 3, 0, 12, T.BRICK).fill(27, 3, 27, 12, T.BRICK);
       rb.fill(5, 11, 19, 12, T.BRICK);
       rb.coins(5, 10, 15); rb.coins(6, 7, 13); rb.coins(8, 4, 9);
+      rb.star(0, 20, 5); // secret: up in the corner of the bonus room
       rb.pipe(23, 2, { warp: { area: 0, tx: 176, ty: 11, mode: 'up' } });
       autoDecor(R, 5);
       return { areas: [A, R], start: { area: 0, x: 3, y: 12 }, checkpoint: 102 };
@@ -1993,9 +2039,11 @@ const LEVELS = [
       b.e('kestane', 36, 12).e('kestane', 39, 12);
       b.pipe(50, 3, { piranha: true }); b.e('spiky', 55, 12); b.pipe(58, 2, { piranha: true }); b.e('spiky', 64, 12);
       b.row(66, 9, 'B?BCB'); b.row(71, 5, 'H');
+      b.star(0, 67, 5); // off the main path: above the brick row
       b.e('beetle', 75, 12);
       b.plat(81, 9, { w: 3, axis: 'y', dist: 40, period: 220 });
       b.coins(81, 4, 3);
+      b.star(1, 84, 3); // skill: jump off the lift at the top of its ride
       b.row(90, 9, 'BBBBBBBB'); b.coins(90, 8, 8);
       b.e('kestane', 94, 12).e('kestane', 96, 12);
       b.row(104, 9, 'S');
@@ -2005,10 +2053,19 @@ const LEVELS = [
       b.pipe(139, 2, { piranha: true });
       b.row(144, 6, 'BBBBBB'); b.coins(144, 5, 6);
       b.e('kestane', 146, 12).e('kestane', 148, 12);
+      // secret: an ordinary-looking pipe drops into a crystal grotto; its pipe comes back up past the stairs
+      b.pipe(155, 2, { warp: { area: 1, tx: 3, ty: 3, mode: 'drop' } });
       b.stairs(160, 6, 1); b.fill(166, 7, 166, 12, T.SOLID);
+      b.pipe(170, 2);
       b.flag(176); b.castle(180);
       autoDecor(A, 22);
-      return { areas: [A], start: { area: 0, x: 3, y: 12 }, checkpoint: 100 };
+      const R = newArea('cave', 24), rb = builder(R);
+      rb.ground(0, 23).fill(0, 2, 23, 2, T.BRICK).fill(0, 3, 0, 12, T.BRICK).fill(23, 3, 23, 12, T.BRICK);
+      rb.row(4, 10, 'BB').row(8, 7, 'BBB').coins(4, 9, 2).coins(8, 6, 3).coins(11, 11, 5);
+      rb.star(2, 13, 4);
+      rb.pipe(19, 2, { warp: { area: 0, tx: 170, ty: 11, mode: 'up' } });
+      autoDecor(R, 8);
+      return { areas: [A, R], start: { area: 0, x: 3, y: 12 }, checkpoint: 100 };
     }
   },
   {
@@ -2017,6 +2074,7 @@ const LEVELS = [
       b.ground(0, 14);
       b.tree(17, 10, 5).coins(18, 8, 3);
       b.tree(24, 7, 4).e('kestane', 26, 6);
+      b.row(29, 4, 'ccc').star(0, 30, 3); // off the main path: a little cloud high above the trees
       b.tree(31, 11, 6).e('beetle', 34, 10);
       b.tree(40, 8, 5).coins(41, 5, 3);
       b.plat(48, 9, { w: 3, axis: 'x', dist: 32, period: 200 });
@@ -2027,10 +2085,12 @@ const LEVELS = [
       b.e('kestane', 79, 10);
       b.tree(86, 8, 4);
       b.fall(92, 9).fall(96, 8).fall(100, 9);
+      b.star(1, 98, 3); // skill: jump up from a falling platform before it drops
       b.tree(105, 10, 6);
       b.e('bee', 111, 6);
       b.plat(113, 8, { w: 3, axis: 'y', dist: 36, period: 200 });
       b.tree(119, 7, 5).row(121, 3, 'M');
+      b.coins(121, 0, 1).coins(121, 1, 1).star(2, 121, -1); // secret: stand on the used M block and jump above the screen
       b.e('bee', 124, 5);
       b.tree(125, 11, 7);
       b.plat(133, 8, { w: 3, axis: 'x', dist: 40, period: 240 });
@@ -2060,6 +2120,7 @@ const LEVELS = [
       b.row(38, 6, 'BBBB?BBBBBBBBB');
       b.e('icicle', 40, 7).e('icicle', 43, 7).e('icicle', 47, 7).e('icicle', 50, 7);
       b.ice(41, 52).coins(44, 10, 3);
+      b.set(37, 9, T.HIDDEN).star(0, 51, 5); // secret: an invisible block leads onto the roof of the icicle hall
       b.e('penguin', 56, 12);
       b.row(58, 9, 'B?B');
       // snowy ledges + hidden 1UP
@@ -2078,8 +2139,10 @@ const LEVELS = [
       b.row(121, 9, 'BBBB'); b.row(123, 5, '?M?');
       b.e('penguin', 119, 12).e('penguin', 127, 12).e('spiky', 131, 12).e('penguin', 135, 12);
       b.row(130, 6, 'BBBBB');
+      b.star(1, 126, 4); // off the main path: up beside the ?M? blocks
       b.e('icicle', 130, 7).e('icicle', 132, 7).e('icicle', 134, 7);
       // finale
+      b.star(2, 144, 7); // skill: a full running jump peaks right over the last pit
       b.e('penguin', 152, 12);
       b.row(155, 9, 'B?B?B');
       b.ice(159, 168);
@@ -2120,15 +2183,18 @@ const LEVELS = [
       b.row(76, 6, '??C??');
       b.coins(75, 8, 9);
       b.e('scorpion', 82, 10);
+      b.star(0, 73, 7); // secret: in the corner of the pyramid's treasure room
       b.coins(76, 3, 7);
       // checkpoint, then a quicksand field with stepping slabs
       b.e('scorpion', 97, 12);
       b.qsand(101, 111).sink(103, 11).sink(107, 10);
+      b.star(1, 109, 5); // skill: jump high off the sinking slab
       b.ground(112, 150);
       b.row(116, 9, 'B?S?B');
       b.e('scorpion', 122, 12).e('scorpion', 126, 12);
       b.row(129, 8, '====').coins(129, 7, 4);
       b.row(134, 5, '====').coins(134, 4, 4);
+      b.star(2, 140, 2); // off the main path: from the high ledge
       b.e('tumble', 140, 11);
       b.row(144, 9, '?M?');
       b.qsand(151, 158).sink(152, 11).sink(155, 10);
@@ -2152,6 +2218,7 @@ const LEVELS = [
       b.set(27, 9, T.SOLID).e('firebar', 27, 9, { len: 6, speed: 0.035 });
       b.e('spiky', 32, 12).e('spiky', 36, 12);
       b.lava(41, 46).row(43, 10, '##').e('podoboo', 42, 14).e('podoboo', 45, 14, { delay: 60 });
+      b.star(0, 45, 7); // skill: over the lava between the lava bubbles
       b.ground(47, 80);
       b.fill(52, 4, 64, 7, T.CASTLE);
       b.set(58, 8, T.SOLID).e('firebar', 58, 8, { len: 5, speed: -0.04 });
@@ -2159,9 +2226,11 @@ const LEVELS = [
       b.lava(81, 88).plat(83, 10, { w: 3, axis: 'x', dist: 40, period: 220 });
       b.ground(89, 120);
       b.row(93, 9, 'U');
+      b.star(1, 91, 5); // off the main path: up from the 1UP block
       b.set(98, 9, T.SOLID).e('firebar', 98, 9, { len: 6, speed: -0.04 });
       b.set(106, 6, T.SOLID).e('firebar', 106, 6, { len: 5, speed: 0.045 });
       b.e('spiky', 102, 12).e('beetle', 111, 12).e('kestane', 115, 12);
+      b.set(114, 9, T.HIDDEN).fill(115, 3, 116, 3, T.EMPTY).star(2, 115, 3); // secret: an invisible block up to a notch in the ceiling
       b.lava(121, 123).e('podoboo', 122, 14, { delay: 30 });
       b.fill(124, 10, 130, 14, T.GROUND);
       b.lava(131, 147).fill(131, 10, 147, 10, T.BRIDGE);
@@ -2191,6 +2260,7 @@ const LEVELS = [
       b.e('jelly', 43, 11);
       // first trench (don't sink!)
       b.coins(46, 8, 5);
+      b.star(0, 48, 12); // off the main path: deep down in the trench
       b.e('fish', 52, 9);
       b.row(54, 8, 'BBPBB');
       b.e('puffer', 58, 11);
@@ -2216,6 +2286,7 @@ const LEVELS = [
       b.fill(130, 9, 131, 12, T.SOLID).fill(136, 0, 137, 5, T.SOLID).fill(142, 8, 143, 12, T.SOLID);
       b.coins(130, 7, 2).coins(142, 6, 2);
       b.e('puffer', 134, 9).e('puffer', 140, 5);
+      b.star(2, 136, 6); // skill: under the hanging rock, between two pufferfish
       b.row(147, 8, '?M?');
       b.e('fish', 152, 4).e('fish', 154, 4).e('fish', 156, 4).e('fish', 153, 10).e('fish', 155, 10);
       b.e('jelly', 158, 12).e('jelly', 162, 12).e('jelly', 166, 12);
@@ -2236,6 +2307,7 @@ const LEVELS = [
       rb.ground(0, 27).fill(0, 0, 27, 1, T.SOLID).fill(0, 2, 0, 12, T.SOLID).fill(27, 2, 27, 12, T.SOLID);
       rb.coins(4, 11, 15).coins(5, 8, 13).coins(7, 5, 9);
       rb.row(12, 3, 'U');
+      rb.star(1, 25, 4); // secret: in the grotto
       rb.pipe(23, 2, { warp: { area: 0, tx: 112, ty: 11, mode: 'up' } });
       autoDecor(R, 13);
       return { areas: [A, B, R], start: { area: 0, x: 3, y: 12 }, checkpoint: 92 };
@@ -2262,7 +2334,7 @@ function initArt() {
     hero: heroFrames(HERO_PAL), fire: heroFrames(FIRE_PAL), heroStar: STAR_PALS.map(heroFrames),
     kestane: makeKestane(), beetle: makeBeetle(), bee: makeBee(), spiky: makeSpiky(), piranha: makePiranha(),
     boss: makeBoss(), princess: makePrincess(), podoboo: makePodoboo(),
-    mush: makeMushroom('#2bb3a0', '#ffd84a'), oneup: makeMushroom('#ff6aa8', '#fff4e0'), flower: makeFlower(), starItem: makeStar(),
+    mush: makeMushroom('#2bb3a0', '#ffd84a'), oneup: makeMushroom('#ff6aa8', '#fff4e0'), flower: makeFlower(), starItem: makeStar(), bigStar: makeBigStar(),
     coin: makeCoin(), mcoin: makeMiniCoin(), fireball: makeFireball(), bossfire: makeBossFire().map(withFlip), axe: makeAxe(), heart: makeHeart(),
     spring: makeSpring(), castle: makeCastle(), pole: makeFlagPole(), flag: makeFlag(), torch: makeTorch(),
     hill: makeHill(80, 36),
@@ -2312,6 +2384,7 @@ const G = {
   state: 'title', stateT: 0, frame: 0, levelIdx: 0, level: null, areaIdx: 0, score: 0, coins: 0, lives: 3, time: 300, timeAcc: 0,
   cam: { x: 0 }, freeze: 0, parts: [], cp: false, seq: null, msg: null, hurry: false, shake: 0, sel: 0, tap: null, paused: false,
   unlocked: store.get('unlocked', 1), best: store.get('best', 0), fade: 0,
+  starSaved: store.get('stars', {}), bigRun: 0, bigPre: 0, starTally: null,
 };
 let area = null;
 const P = { x: 0, y: 0, w: 12, h: 15, vx: 0, vy: 0, size: 0, dir: 1, onGround: false, coyote: 0, jbuf: 0, jumping: false, inv: 0, star: 0, anim: 0, skid: false, ducking: false, combo: 0, state: 'play', stateT: 0, onPlat: null, fireCD: 0, throwT: 0, visible: true, pipeTop: 0, transform: 0, tfrom: 0 };
@@ -2414,6 +2487,8 @@ function spawnEntity(s) {
     case 'puffer': return { ...base, x: x + 2, y: s.y * 16 + 2, cx: x + 8, cy: s.y * 16 + 8, homeX: x + 8, baseY: s.y * 16 + 8, w: 12, h: 12, vx: -0.3, inf: 0, puff: 0, enemy: true, stomp: false, killable: true };
     case 'jelly': return { ...base, x: x + 2, y: s.y * 16 - 2, floorY: s.y * 16 - 2, w: 12, h: 14, enemy: true, stomp: false, killable: true, pulse: 30 + ((s.x * 7) % 40) };
     case 'fish': return { ...base, x: x + 1, y: s.y * 16 + 3, baseY: s.y * 16 + 3, w: 14, h: 10, vx: s.vx || -0.75, kind: s.x % 2, enemy: true, stomp: false, killable: true };
+    // a star already picked up in this run (kept through a checkpoint respawn) does not come back
+    case 'bigstar': return (G.bigRun >> s.idx) & 1 ? null : { ...base, x, y: s.y * 16, w: 16, h: 16, idx: s.idx, ghost: !!((starsSaved(G.level.def.id) >> s.idx) & 1), keep: true };
   }
   return null;
 }
@@ -2613,7 +2688,7 @@ function playerControl() {
   }
   // checkpoint
   if (isEasy()) easyCheckpoints();
-  else if (!G.cp && G.level.checkpoint && G.areaIdx === 0 && P.x > G.level.checkpoint * 16) { G.cp = true; SND.play('checkpoint'); popup('KONTROL NOKTASI', P.x - 30, P.y - 14, '#6af0d8'); }
+  else if (!G.cp && G.level.checkpoint && G.areaIdx === 0 && P.x > G.level.checkpoint * 16) { G.cp = true; G.bigPre = G.bigRun; SND.play('checkpoint'); popup('KONTROL NOKTASI', P.x - 30, P.y - 14, '#6af0d8'); }
   if (isEasy()) easyTick();
   // goal flag
   if (area.flag && P.x + P.w >= area.flag.x * 16 - 1) startFlag();
@@ -2652,6 +2727,7 @@ function startFlag() {
   const pts = h < 40 ? 5000 : h < 64 ? 2000 : h < 96 ? 800 : h < 128 ? 400 : 100;
   addScore(pts, fx + 10, P.y);
   G.flagY = 3 * 16 + 2; G.timeStop = true;
+  bankStars();
   MUSIC.stop(); SND.play('flag');
 }
 function updatePlayerState() {
@@ -2933,6 +3009,10 @@ function updateEnt(e) {
       break;
     }
     case 'item': updateItem(e); break;
+    case 'bigstar':
+      if (e.t % (e.ghost ? 40 : 18) === 0) G.parts.push({ k: 'twinkle', x: e.x + 2 + ((e.t * 7) % 13), y: e.y + 1 + ((e.t * 5) % 14), t: 0 });
+      if (P.state === 'play' && overlap(P, { x: e.x - 1, y: e.y - 1, w: e.w + 2, h: e.h + 2 })) collectBigStar(e);
+      break;
     case 'fireball': {
       e.vy = Math.min(e.vy + 0.35, 4.5);
       const ox = e.x, r = moveBody(e);
@@ -2981,6 +3061,29 @@ function waterFire(e) {
     if (o.dead || o.dying || !o.enemy || !o.active || !o.killable || !overlap(e, o)) continue;
     flipKill(o, Math.sign(e.vx)); addScore(200, o.x, o.y); SND.play('kick'); e.dead = true; puff(e.x, e.y); break;
   }
+}
+// ---------- BÜYÜK YILDIZ: 3 hidden big stars per level ----------
+// G.bigRun: bitmask picked up in this run; it only counts (store 'stars') once the level is finished.
+// Dying loses the ones picked up since the last checkpoint (G.bigPre = snapshot of G.bigRun when the latest checkpoint was reached).
+function starsSaved(id) { return G.starSaved[id] || 0; }
+function starCount(m) { return (m & 1) + ((m >> 1) & 1) + ((m >> 2) & 1); }
+function collectBigStar(e) {
+  e.dead = true;
+  const bit = 1 << e.idx;
+  G.bigRun |= bit;
+  G.bigT = G.frame; G.bigI = e.idx;
+  const cx = e.x + 8, cy = Math.max(e.y + 8, 44); // (popup stays on screen for the one above the sky)
+  addScore(e.ghost ? 1000 : 2000, cx - 10, cy - 14);
+  popup(e.ghost ? 'YILDIZ' : 'BÜYÜK YILDIZ!', cx - (e.ghost ? 15 : 36), cy - 24, '#ffd84a');
+  SND.play('bigstar'); HAPTIC.buzz(BUZZ.power); hitStop(2);
+  starBurst(cx, cy);
+  for (let i = 0; i < 14; i++) { const a = i / 14 * Math.PI * 2; G.parts.push({ k: 'fw', x: cx, y: cy, vx: Math.cos(a) * 2.2, vy: Math.sin(a) * 2.2, t: 22, col: i % 2 ? '#ffd84a' : '#fff4e0' }); }
+}
+// at the flag / axe: bank this run's stars and show the tally
+function bankStars() {
+  const id = G.level.def.id, old = starsSaved(id), now = old | G.bigRun;
+  G.starTally = { got: G.bigRun, old, t: G.frame };
+  if (now !== old) { G.starSaved = { ...G.starSaved, [id]: now }; store.set('stars', G.starSaved); }
 }
 function puff(x, y) { for (let i = 0; i < 4; i++) G.parts.push({ k: 'spark', x: x + 4, y: y + 4, t: 0, vx: rnd(-1, 1), vy: rnd(-1, 1), col: i % 2 ? '#ffd84a' : '#ff6a1a' }); }
 function updateItem(e) {
@@ -3034,6 +3137,7 @@ function startBridgeSeq(axe) {
   axe.dead = true;
   P.state = 'axe'; P.vx = 0; P.vy = 0; G.timeStop = true; P.star = 0;
   P.x = Math.max(P.x, (area.bridge.x1 + 1) * 16 + 1);
+  bankStars();
   MUSIC.stop();
   for (const e of area.ents) { if (e.type === 'bossfire') e.dead = true; if (e.type === 'boss') { e.frozen = true; } }
   G.seq = { k: 'bridge', t: 0, i: area.bridge.x1 };
@@ -3081,6 +3185,7 @@ function beginPlay() {
   G.level = def.make();
   G.level.def = def;
   G.time = def.time + (isEasy() ? EASY.time : 0); G.timeAcc = 0; G.hurry = false; G.timeStop = false; G.seq = null; G.msg = null; G.parts = []; G.freeze = 0;
+  G.bigRun = (G.cp || G.cpx) ? G.bigPre : 0; G.bigPre = G.bigRun; G.starTally = null; // big stars: only the ones from before the checkpoint survive a death
   enterArea(G.level.start.area);
   Object.assign(P, { vx: 0, vy: 0, size: P.size || 0, dir: 1, onGround: false, coyote: 0, jbuf: 0, jumping: false, inv: 0, star: 0, anim: 0, ducking: false, combo: 0, state: 'play', stateT: 0, onPlat: null, fireCD: 0, throwT: 0, visible: true, transform: 0 });
   P.h = P.size ? 29 : 15;
@@ -3269,7 +3374,7 @@ function easyCheckpoints() {
   if (G.areaIdx !== 0 || !G.level.cps) return;
   for (const c of G.level.cps) {
     if (c.x <= (G.cpx || 0) || P.x <= c.x * 16) continue;
-    G.cpx = c.x; if (c.x === G.level.checkpoint) G.cp = true;
+    G.cpx = c.x; G.bigPre = G.bigRun; if (c.x === G.level.checkpoint) G.cp = true;
     SND.play('checkpoint'); popup('KONTROL NOKTASI', P.x - 30, P.y - 14, '#6af0d8');
   }
 }
@@ -3522,6 +3627,11 @@ function drawEnt(e) {
     }
     case 'jelly': D(e.dying ? ART.jelly.dead : ART.jelly.fr[e.vy < -0.35 ? 1 : 0], e.x - 2, e.y - 1); break;
     case 'fish': { const F = ART.fish[e.kind]; D(e.dying ? F.dead : F.swim[(f >> 3) % 2][e.vx < 0 ? 0 : 1], e.x - 1, e.y - 1); break; }
+    case 'bigstar': { // gentle bob; the shimmer sweeps across every ~2 s
+      const y = e.y - 4 + Math.round(Math.sin(G.frame / 14 + e.idx * 2) * 2), ph = (G.frame + e.idx * 37) % 120;
+      D(e.ghost ? ART.bigStar.ghost : ART.bigStar.fr[ph < 12 ? ph >> 2 : 3], e.x - 4, y);
+      break;
+    }
   }
 }
 function drawKelp(d, set) {
@@ -3652,6 +3762,7 @@ function drawHUD() {
   drawText('×' + (G.ta ? '∞' : G.lives), cx + 8, 5, '#fff4e0', o);
   ctx.drawImage(ART.mcoin, cx, 15);
   drawText('×' + String(G.coins).padStart(2, '0'), cx + 8, 15, '#ffd84a', o);
+  drawStarSlots();
   const wx = Math.round(VW * (G.ta ? 0.6 : 0.7)) - 6; // the stopwatch is wider than the countdown
   drawText('DÜNYA', wx, 5, '#fff4e0', o);
   drawText(G.level ? G.level.def.id : '1-1', wx + 6, 15, '#fff4e0', o);
@@ -3668,6 +3779,32 @@ function easyBadge(x, y) {
   ctx.fillStyle = K; ctx.fillRect(x, y, 9, 9);
   ctx.fillStyle = '#6af08a'; ctx.fillRect(x + 1, y + 1, 7, 7);
   drawText('K', x + 2, y + 1, '#1d4a2a');
+}
+// the level's 3 BÜYÜK YILDIZ slots: a third HUD row under the score (the top centre belongs to the DOM buttons in landscape)
+function drawStarSlots() {
+  if (!G.level) return;
+  const saved = starsSaved(G.level.def.id), have = saved | G.bigRun, x0 = 8;
+  for (let i = 0; i < 3; i++) {
+    const on = (have >> i) & 1, fresh = G.bigI === i && G.frame - G.bigT < 50 && ((G.bigRun >> i) & 1);
+    const y = 25 - (fresh ? Math.round(Math.sin((G.frame - G.bigT) / 50 * Math.PI) * 4) : 0);
+    D(on ? ART.bigStar.icon : ART.bigStar.iconOff, x0 + i * 10, y);
+    if (fresh && (G.frame >> 2) % 2) { ctx.fillStyle = '#ffffff'; ctx.fillRect(x0 + i * 10 + 3, y - 2, 1, 2); ctx.fillRect(x0 + i * 10 + 3, y + 7, 1, 2); }
+  }
+}
+// level clear: which big stars were found in this run (gold), saved before (ghost) or still missing (empty)
+function drawStarTally() {
+  const T0 = G.starTally, k = G.frame - T0.t;
+  if (k < 20) return;
+  const w = 104, h = 50, x = Math.round((VW - w) / 2), y = G.msg ? 98 : 40; // clear of the top buttons in landscape
+  panel(x, y, w, h);
+  drawText('BÜYÜK YILDIZ', VW / 2, y + 4, '#ffd84a', { align: 'center' });
+  for (let i = 0; i < 3; i++) {
+    const got = (T0.got >> i) & 1, old = (T0.old >> i) & 1, d = k - 20 - i * 10;
+    const sx = x + 14 + i * 26, sy = y + 14 - (got && d >= 0 && d < 12 ? Math.round(Math.sin(d / 12 * Math.PI) * 5) : 0);
+    if (got && d >= 0) D(ART.bigStar.fr[d < 12 ? d >> 2 : 3], sx, sy);
+    else { ctx.globalAlpha = old ? 1 : 0.35; D(ART.bigStar.ghost, sx, sy); ctx.globalAlpha = 1; }
+    if (got && !old && d >= 12 && (G.frame >> 4) % 2) drawText('YENİ', sx + 12, y + 41, '#6af0d8', { align: 'center', shadow: K });
+  }
 }
 function renderWorld() {
   const A = area;
@@ -3695,6 +3832,7 @@ function renderWorld() {
   if (A.water) drawSea(camx);
   drawWeather(A.theme, camx);
   drawHUD();
+  if (G.starTally) drawStarTally();
   if (G.msg) drawMessage();
   if (G.fade > 0) { ctx.fillStyle = 'rgba(0,0,0,' + (G.fade / 14) + ')'; ctx.fillRect(0, 0, VW, VH); }
   if (G.flash > 0) { ctx.fillStyle = 'rgba(255,255,255,' + (G.flash * 0.07) + ')'; ctx.fillRect(0, 0, VW, VH); }
@@ -3772,6 +3910,10 @@ function renderTitle() {
   drawText('SÜPER', VW / 2, 22 + bob, '#ffd84a', { scale: 2, align: 'center', outline: K });
   drawText('BIYIK', VW / 2 + 2, 48 + bob, K, { scale: 5, align: 'center' });
   drawText('BIYIK', VW / 2, 46 + bob, '#e4572e', { scale: 5, align: 'center', outline: K });
+  // big stars found over all levels, top-left corner
+  const nStars = LEVELS.reduce((a, L) => a + starCount(starsSaved(L.id)), 0);
+  D(ART.bigStar.icon, 7, 7);
+  drawText(nStars + '/' + LEVELS.length * 3, 17, 7, nStars === LEVELS.length * 3 ? '#ffd84a' : '#fff4e0', { shadow: K });
   // mode switch
   const mt = modeToggle();
   ctx.fillStyle = K; ctx.fillRect(mt.x - 2, mt.y - 2, mt.w + 4, mt.h + 4);
@@ -3806,19 +3948,24 @@ function renderTitle() {
       ctx.fillStyle = 'rgba(230,250,255,.7)'; ctx.fillRect(Math.round(bx), Math.round(by), 2, 2);
     }
     const idCol = locked ? (secret ? '#5a5478' : '#8a8698') : secret ? '#ffd84a' : '#fff4e0';
+    // the level's big stars: three 7x7 icons (gold = found)
+    const stars = sy => { const m = starsSaved(LEVELS[i].id); for (let k = 0; k < 3; k++) D((m >> k) & 1 ? ART.bigStar.icon : ART.bigStar.iconOff, c.x + c.w / 2 - 13 + k * 10, sy); };
     if (TA && !locked) { // time attack: the best time sits on the card
       const has = taBestOf(i) > 0;
       if (grid) {
-        drawText(LEVELS[i].id, c.x + c.w / 2, c.y + 3, idCol, { align: 'center', shadow: K });
-        drawText(cardTime(i), c.x + c.w / 2, c.y + 12, has ? '#ffffff' : '#a89cc0', { align: 'center', shadow: K });
+        drawText(LEVELS[i].id, c.x + c.w / 2, c.y + 1, idCol, { align: 'center', shadow: K });
+        drawText(cardTime(i), c.x + c.w / 2, c.y + 10, has ? '#ffffff' : '#a89cc0', { align: 'center', shadow: K });
+        stars(c.y + 18);
       } else {
-        drawText(LEVELS[i].id, c.x + c.w / 2, c.y + 6, idCol, { align: 'center', scale: 2, shadow: K });
+        drawText(LEVELS[i].id, c.x + c.w / 2, c.y + 4, idCol, { align: 'center', scale: 2, shadow: K });
+        stars(c.y + 20);
         drawText(cardTime(i), c.x + c.w / 2, c.y + c.h - 9, has ? K : '#1d16268c', { align: 'center' });
       }
       return;
     }
+    if (!locked) stars(grid ? c.y + c.h - 9 : c.y + c.h - 10);
     if (locked && grid) drawPadlock(c.x + c.w / 2 + 14, c.y + 12); // padlock beside the id
-    drawText(LEVELS[i].id, c.x + c.w / 2 - (locked && grid ? 6 : 0), c.y + (grid ? 5 : 6), idCol, { align: 'center', scale: 2, shadow: K });
+    drawText(LEVELS[i].id, c.x + c.w / 2 - (locked && grid ? 6 : 0), c.y + (grid ? (locked ? 5 : 2) : 6), idCol, { align: 'center', scale: 2, shadow: K });
     if (locked && !grid) drawPadlock(c.x + c.w / 2 - 4, c.y + 26);
   });
   const selL = LEVELS[G.sel];
@@ -4453,6 +4600,7 @@ function loop(now) {
 requestAnimationFrame(loop);
 window.__SB = { G, P, input, get area() { return area; }, LEVELS, beginPlay, newGame, tick, render, pauseItems, HAPTIC, spawnEntity, T, OPT, pixMode, layout, STICK, get stick() { return stick && { ...stick, r: stickR }; } };
 Object.assign(window.__SB, { diffToggle, isEasy, EASY, groundRowAt, titleCards, modeToggle, taButtons, startTimeAttack, fmtTime, SWIM, SONGS, MAIN_LEVELS });
+window.__SB.stars = { saved: starsSaved, count: starCount, bank: bankStars };
 })();
 </script>
 </body>
