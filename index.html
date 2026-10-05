@@ -4263,8 +4263,14 @@ const SND_ON = '<path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4
 const SND_OFF = '<path d="M3 9v6h4l5 5V4L7 9H3zm13.6 3 2.7-2.7-1.4-1.4-2.7 2.7-2.7-2.7-1.4 1.4 2.7 2.7-2.7 2.7 1.4 1.4 2.7-2.7 2.7 2.7 1.4-1.4z"/>';
 function toggleMute() { SND.init(); SND.setMuted(!SND.muted); document.getElementById('icoSnd').innerHTML = SND.muted ? SND_OFF : SND_ON; }
 document.getElementById('icoSnd').innerHTML = SND.muted ? SND_OFF : SND_ON;
-document.getElementById('bMute').addEventListener('click', e => { e.stopPropagation(); e.currentTarget.blur(); toggleMute(); });
-document.getElementById('bPause').addEventListener('click', e => { e.stopPropagation(); e.currentTarget.blur(); if (G.paused) unpause(); else pause(); });
+// top buttons: react on pointerup so a second finger works while the other hand holds the stick; keep click for keyboard/mouse
+function topButton(id, fn) {
+  const el = document.getElementById(id); let lastUp = 0;
+  el.addEventListener('pointerup', e => { if (e.pointerType === 'mouse') return; e.stopPropagation(); lastUp = performance.now(); el.blur(); fn(); });
+  el.addEventListener('click', e => { e.stopPropagation(); el.blur(); if (performance.now() - lastUp > 600) fn(); });
+}
+topButton('bMute', toggleMute);
+topButton('bPause', () => { if (G.paused) unpause(); else pause(); });
 const bFull = document.getElementById('bFull');
 const fsEl = document.documentElement;
 if (!(fsEl.requestFullscreen || fsEl.webkitRequestFullscreen) || !document.fullscreenEnabled && !document.webkitFullscreenEnabled) bFull.classList.add('hide');
