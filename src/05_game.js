@@ -180,7 +180,8 @@ function spawnCoinPop(tx, ty) {
   addCoin(); G.score += 200;
 }
 function spawnFireball() {
-  const fb = { type: 'fireball', x: P.dir > 0 ? P.x + P.w - 2 : P.x - 6, y: P.y + 6, w: 8, h: 8, vx: P.dir * 4.2, vy: 2.5, active: true, t: 0 };
+  // launched from about knee height with a gentle downward arc so it lands right away and skims the floor
+  const fb = { type: 'fireball', x: P.dir > 0 ? P.x + P.w - 2 : P.x - 6, y: P.y + P.h - 16, w: 8, h: 8, vx: P.dir * 4.2, vy: 1.5, active: true, t: 0 };
   G.area_new.push(fb);
   SND.play('fire');
 }
@@ -616,8 +617,11 @@ function updateEnt(e) {
     case 'item': updateItem(e); break;
     case 'fireball': {
       e.vy = Math.min(e.vy + 0.35, 4.5);
-      const r = moveBody(e);
-      if (r.ground) e.vy = -3.3;
+      const ox = e.x, r = moveBody(e);
+      // low, fixed bounce (apex ~10 px): stays under the top of every ground enemy (spiky is 11 px tall)
+      if (r.ground) e.vy = -FB_BOUNCE;
+      // hop up a one-tile step instead of fizzling on it (only when there is room above the step)
+      if (r.wall && fbStep(e, ox)) r.wall = false;
       if (r.wall || e.x < G.cam.x - 16 || e.x > G.cam.x + VW + 16 || e.y > VH) { e.dead = true; puff(e.x, e.y); break; }
       for (const o of area.ents) {
         if (o.dead || o.dying || !o.enemy || !o.active) continue;
@@ -639,6 +643,16 @@ function updateEnt(e) {
     }
     case 'axe': if (P.state === 'play' && overlap(P, e)) startBridgeSeq(e); break;
   }
+}
+const FB_BOUNCE = 2.6;
+function fbStep(e, ox) {
+  const lead = e.vx > 0 ? ox + e.vx + e.w - 1 : ox + e.vx, tx = Math.floor(lead / 16);
+  const back = Math.floor((e.vx > 0 ? ox + e.w - 1 : ox) / 16);
+  let r = -1;
+  for (let ty = Math.floor(e.y / 16); ty <= Math.floor((e.y + e.h - 1) / 16); ty++) if (solidAt(tx, ty)) { r = ty; break; }
+  if (r < 1 || e.y + e.h - r * 16 > 16 || solidAt(tx, r - 1) || solidAt(back, r - 1)) return false;
+  e.x = ox + e.vx; e.y = r * 16 - e.h; e.vy = -FB_BOUNCE;
+  return true;
 }
 function puff(x, y) { for (let i = 0; i < 4; i++) G.parts.push({ k: 'spark', x: x + 4, y: y + 4, t: 0, vx: rnd(-1, 1), vy: rnd(-1, 1), col: i % 2 ? '#ffd84a' : '#ff6a1a' }); }
 function updateItem(e) {
@@ -761,7 +775,7 @@ function groundRowAt(tx) {
   return 12;
 }
 function nextLevel() {
-  G.cp = false;
+  G.cp = false; saveBest(); // level cleared: bank the score so a closed tab can't lose it
   if (G.levelIdx + 1 < LEVELS.length) {
     G.unlocked = Math.max(G.unlocked, G.levelIdx + 2); store.set('unlocked', G.unlocked);
     startLevel(G.levelIdx + 1, true);
@@ -773,6 +787,7 @@ function toEnding() {
   G.state = 'ending'; G.stateT = 0; G.parts = [];
   MUSIC.play('title');
 }
+// cheap: only touches storage when the record actually moves (called at level clear, pause, tab hide, game end)
 function saveBest() { if (G.score > G.best) { G.best = G.score; store.set('best', G.best); } }
 function gameOver() {
   saveBest();

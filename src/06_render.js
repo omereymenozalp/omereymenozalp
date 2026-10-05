@@ -429,19 +429,27 @@ function render() {
 }
 
 // ---------- pause menu ----------
-const PAUSE_IDS = ['resume', 'restart', 'sound', 'vib', 'menu'];
+// two pages: the main menu and AYARLAR (settings); every row stays >= ~36 CSS px tall when the screen allows it
+const PAUSE_PAGES = [['resume', 'restart', 'sound', 'settings', 'menu'], ['vib', 'padsize', 'padalpha', 'pixel', 'back']];
+function pauseIds() { return PAUSE_PAGES[G.ppage || 0]; }
 function pauseItems() {
-  const w = Math.min(VW - 28, 204), h = 25, gap = 5, x = Math.round((VW - w) / 2), y0 = 52;
-  return PAUSE_IDS.map((id, i) => ({ id, x, y: y0 + i * (h + gap), w, h }));
+  const w = Math.min(VW - 28, 204), gap = 4, h = clamp(Math.ceil(36 / cssScale), 25, 29), x = Math.round((VW - w) / 2), y0 = 50;
+  return pauseIds().map((id, i) => ({ id, x, y: y0 + i * (h + gap), w, h }));
 }
 function canRestart() { return !G.seq && !G.timeStop && !G.msg && P.state !== 'flag'; }
+const OPT_NAMES = { padSize: { s: 'KÜÇÜK', m: 'ORTA', l: 'BÜYÜK' }, padAlpha: { s: 'AZ', m: 'ORTA', l: 'ÇOK' } };
 function pauseLabel(id) {
   switch (id) {
     case 'resume': return 'DEVAM ET';
     case 'restart': return 'BÖLÜMÜ YENİDEN BAŞLAT';
     case 'sound': return 'SES: ' + (SND.muted ? 'KAPALI' : 'AÇIK');
-    case 'vib': return 'TİTREŞİM: ' + (!HAPTIC.ok ? 'YOK' : HAPTIC.on ? 'AÇIK' : 'KAPALI');
+    case 'settings': return 'AYARLAR';
     case 'menu': return 'ANA MENÜ';
+    case 'vib': return 'TİTREŞİM: ' + (!HAPTIC.ok ? 'YOK' : HAPTIC.on ? 'AÇIK' : 'KAPALI');
+    case 'padsize': return 'TUŞ BOYUTU: ' + OPT_NAMES.padSize[OPT.padSize];
+    case 'padalpha': return 'TUŞ SAYDAMLIĞI: ' + OPT_NAMES.padAlpha[OPT.padAlpha];
+    case 'pixel': return 'PİKSEL ÖLÇEĞİ: ' + (pixMode() === 'tam' ? 'TAM' : 'UYDUR');
+    case 'back': return 'GERİ';
   }
 }
 function pauseEnabled(id) { return id === 'restart' ? canRestart() : id === 'vib' ? HAPTIC.ok : true; }
@@ -449,24 +457,27 @@ function renderPause() {
   ctx.fillStyle = 'rgba(11,7,20,.72)'; ctx.fillRect(0, 0, VW, VH);
   const items = pauseItems(), f = items[0];
   panel(f.x - 10, 14, f.w + 20, items[items.length - 1].y + f.h + 8 - 14);
-  drawText('DURAKLATILDI', VW / 2, 22, '#ffd84a', { scale: 2, align: 'center', outline: K });
+  drawText(G.ppage ? 'AYARLAR' : 'DURAKLATILDI', VW / 2, 22, '#ffd84a', { scale: 2, align: 'center', outline: K });
   items.forEach((it, i) => {
     const sel = i === G.psel, on = pauseEnabled(it.id), press = sel && G.pflash > 0;
-    const y = it.y + (press ? 1 : 0);
+    const y = it.y + (press ? 1 : 0), ty = y + Math.floor((it.h - 7) / 2);
     ctx.fillStyle = K; ctx.fillRect(it.x - 1, y - 1, it.w + 2, it.h + 2);
     ctx.fillStyle = sel ? (press ? '#fff4e0' : '#ffd84a') : '#5a4a7a'; ctx.fillRect(it.x, y, it.w, it.h);
     ctx.fillStyle = sel ? '#e4572e' : '#3a2e5a'; ctx.fillRect(it.x + 1, y + 1, it.w - 2, it.h - 2);
     ctx.fillStyle = sel ? 'rgba(255,255,255,.22)' : 'rgba(255,255,255,.08)'; ctx.fillRect(it.x + 1, y + 1, it.w - 2, 2);
     if (!press) { ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.fillRect(it.x + 1, y + it.h - 3, it.w - 2, 2); }
     const col = !on ? '#6a6488' : sel ? '#fff4e0' : '#e8e0f0';
-    drawText(pauseLabel(it.id), it.x + it.w / 2, y + 8, col, { align: 'center', shadow: on ? K : null });
-    if (sel && (G.frame >> 4) % 2 === 0) drawText('▶', it.x + 5, y + 8, '#ffd84a', { shadow: K });
-    if (it.id === 'restart' && on && G.lives > 1) drawText('-1♥', it.x + it.w - 5, y + 8, '#ffb0a0', { align: 'right', shadow: K });
+    drawText(pauseLabel(it.id), it.x + it.w / 2, ty, col, { align: 'center', shadow: on ? K : null });
+    if (sel && (G.frame >> 4) % 2 === 0) drawText('▶', it.x + 5, ty, '#ffd84a', { shadow: K });
+    if (it.id === 'restart' && on && G.lives > 1) drawText('-1♥', it.x + it.w - 5, ty, '#ffb0a0', { align: 'right', shadow: K });
+    if (it.id === 'settings') drawText('>', it.x + it.w - 8, ty, sel ? '#fff4e0' : '#8a8698', { align: 'right', shadow: K });
   });
-  const hint = HAS_TOUCH ? '< > SEÇ   A TAMAM   B DEVAM' : 'OKLAR SEÇ   ENTER TAMAM   ESC DEVAM';
+  const hint = HAS_TOUCH ? (G.ppage ? '< > SEÇ   A DEĞİŞTİR   B GERİ' : '< > SEÇ   A TAMAM   B DEVAM') : (G.ppage ? 'OKLAR SEÇ   ENTER DEĞİŞTİR   ESC GERİ' : 'OKLAR SEÇ   ENTER TAMAM   ESC DEVAM');
   drawText(hint, VW / 2, VH - 16, '#8a8698', { align: 'center', shadow: K });
 }
-function movePause(d) { G.psel = (G.psel + d + PAUSE_IDS.length) % PAUSE_IDS.length; SND.play('select'); }
+function movePause(d) { const n = pauseIds().length; G.psel = (G.psel + d + n) % n; SND.play('select'); }
+function pausePage(pg) { G.ppage = pg; G.psel = pg ? 0 : PAUSE_PAGES[0].indexOf('settings'); SND.play('select'); }
+const cycle = (list, v) => list[(list.indexOf(v) + 1) % list.length];
 function pauseAct(id) {
   G.pflash = 6;
   switch (id) {
@@ -482,8 +493,15 @@ function pauseAct(id) {
       if (!HAPTIC.ok) { SND.play('bump'); break; }
       HAPTIC.set(!HAPTIC.on); SND.play('select'); HAPTIC.buzz(30); break;
     case 'menu': SND.play('select'); wipeOut(() => { G.paused = false; toTitle(); }); break;
+    case 'settings': pausePage(1); break;
+    case 'back': pausePage(0); break;
+    case 'padsize': setOpt('padSize', cycle(['s', 'm', 'l'], OPT.padSize)); SND.play('select'); break;
+    case 'padalpha': setOpt('padAlpha', cycle(['s', 'm', 'l'], OPT.padAlpha)); SND.play('select'); break;
+    case 'pixel': setOpt('pixel', pixMode() === 'tam' ? 'uydur' : 'tam'); SND.play('select'); break;
   }
 }
+// B / X / Esc: back out of AYARLAR first, then resume
+function pauseBack() { if (G.ppage) { G.pflash = 6; pausePage(0); } else pauseAct('resume'); }
 function updatePause() {
   if (G.pflash > 0) G.pflash--;
   const t = input.touch, m = G._mt || {};
@@ -492,8 +510,8 @@ function updatePause() {
   const edge = k => (t[k] && !m[k]) || padTaps[k];
   if (edge('left')) movePause(-1);
   if (edge('right') || edge('down')) movePause(1);
-  if (edge('a')) { pauseAct(PAUSE_IDS[G.psel]); return; }
-  if (edge('b')) { pauseAct('resume'); return; }
+  if (edge('a')) { pauseAct(pauseIds()[G.psel]); return; }
+  if (edge('b')) { pauseBack(); return; }
   const tp = G.tap;
   if (tp && !tp.pad) {
     const items = pauseItems();
@@ -545,8 +563,9 @@ function drawWipe() {
 // =====================================================================
 const HAS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 function pause() {
+  saveBest();
   if (G.state !== 'play' || G.paused || wipeBusy()) return;
-  G.paused = true; G.psel = 0; G.pflash = 0; G._mt = input.touch; layout(); G.resumeMusic = MUSIC.name; G.resumeSpeed = MUSIC.speed; MUSIC.stop(); SND.play('pause');
+  G.paused = true; G.psel = 0; G.ppage = 0; G.pflash = 0; G._mt = input.touch; layout(); G.resumeMusic = MUSIC.name; G.resumeSpeed = MUSIC.speed; MUSIC.stop(); SND.play('pause');
 }
 function unpause() {
   if (!G.paused || wipeBusy()) return;
@@ -600,17 +619,43 @@ function tick() {
 
 // ---------- layout ----------
 const app = document.getElementById('app'), pad = document.getElementById('pad'), topBar = document.getElementById('top'), hintEl = document.getElementById('hint');
+// player settings from the AYARLAR page; pixel: null = automatic (see layout)
+const pick = (v, ok, d) => ok.includes(v) ? v : d;
+const OPT = { padSize: pick(store.get('padSize', 'm'), ['s', 'm', 'l'], 'm'), padAlpha: pick(store.get('padAlpha', 'm'), ['s', 'm', 'l'], 'm'), pixel: pick(store.get('pixel', null), ['tam', 'uydur'], null) };
+function setOpt(k, v) { OPT[k] = v; store.set(k, v); layout(); }
+// [landscape, portrait]: landscape buttons float over the game, so they default a bit smaller and see-through
+const PAD_MUL = { s: [0.72, 0.8], m: [0.88, 0.92], l: [1.05, 1.1] };
+const PAD_ALPHA = { s: [1, 1.15], m: [0.62, 1], l: [0.36, 0.62] };
+let cssScale = 1, pixAuto = 'uydur';
+function pixMode() { return OPT.pixel || pixAuto; }
+// "TAM": the largest scale that maps one game pixel onto a whole number of device pixels
+function intScale(s) { const r = window.devicePixelRatio || 1; return Math.max(1, Math.floor(s * r + 1e-6)) / r; }
+// default: phones fill the screen (bigger is better); elsewhere whole pixels when that costs < 15% of the size
+function autoPix(W, H, s, si) { return HAS_TOUCH && Math.min(W, H) < 600 ? 'uydur' : si >= s * 0.85 ? 'tam' : 'uydur'; }
+const snap = v => { const r = window.devicePixelRatio || 1; return Math.round(v * r) / r; };
+function padLook(portrait) {
+  const a = PAD_ALPHA[OPT.padAlpha][portrait ? 1 : 0], ink = v => `rgba(255,244,224,${(v * a).toFixed(3)})`;
+  const vars = {
+    '--btn': ink(0.13), '--btn-edge': ink(0.38), '--io': Math.min(1, 0.35 + 0.65 * a).toFixed(3),
+    '--a-bg': `rgba(228,87,46,${(0.32 * a).toFixed(3)})`, '--a-edge': `rgba(255,160,120,${Math.min(1, 0.6 * a).toFixed(3)})`,
+    '--b-bg': `rgba(255,216,74,${(0.18 * a).toFixed(3)})`, '--b-edge': `rgba(255,216,74,${Math.min(1, 0.5 * a).toFixed(3)})`,
+  };
+  for (const k in vars) pad.style.setProperty(k, vars[k]);
+}
 function layout() {
   const W = app.clientWidth, H = app.clientHeight;
   const portrait = H > W * 1.05 && H - Math.round(VH * W / 256) >= 220;
   let cw, ch;
   if (!portrait) {
     VW = clamp(Math.round(VH * W / H / 2) * 2, 256, 432);
-    const s = Math.min(H / VH, W / VW);
-    cw = VW * s; ch = VH * s;
-    Object.assign(cv.style, { width: cw + 'px', height: ch + 'px', left: (W - cw) / 2 + 'px', top: (H - ch) / 2 + 'px' });
+    let s = Math.min(H / VH, W / VW);
+    const si = intScale(s);
+    pixAuto = autoPix(W, H, s, si);
+    if (pixMode() === 'tam') { s = si; VW = clamp(Math.floor(W / s / 2) * 2, 256, 432); } // spend spare width on more view
+    cw = VW * s; ch = VH * s; cssScale = s;
+    Object.assign(cv.style, { width: cw + 'px', height: ch + 'px', left: snap((W - cw) / 2) + 'px', top: snap((H - ch) / 2) + 'px' });
     pad.classList.remove('portrait'); pad.style.top = '0px';
-    const dp = clamp(H * 0.4, 120, 200);
+    const dp = Math.max(92, clamp(H * 0.4, 120, 200) * PAD_MUL[OPT.padSize][0]);
     pad.style.setProperty('--dp', dp + 'px'); pad.style.setProperty('--ab', dp * 1.02 + 'px');
     const inPlay = (G.state === 'play' || G.state === 'dying') && !G.paused; // paused: keep the menu title clear
     Object.assign(topBar.style, inPlay ? { top: 'calc(6px + env(safe-area-inset-top,0px))', left: '50%', right: 'auto', transform: 'translateX(-50%)' }
@@ -618,16 +663,22 @@ function layout() {
     hintEl.classList.add('hide');
   } else {
     VW = 256;
-    cw = W; ch = Math.round(VH * W / VW);
-    Object.assign(cv.style, { width: cw + 'px', height: ch + 'px', left: '0px', top: 'env(safe-area-inset-top,0px)' });
+    let s = W / VW;
+    const si = intScale(s);
+    pixAuto = autoPix(W, H, s, si);
+    if (pixMode() === 'tam') { s = si; cw = VW * s; ch = VH * s; } else { cw = W; ch = Math.round(VH * W / VW); }
+    cssScale = s;
+    Object.assign(cv.style, { width: cw + 'px', height: ch + 'px', left: snap((W - cw) / 2) + 'px', top: 'env(safe-area-inset-top,0px)' });
     pad.classList.add('portrait'); pad.style.top = `calc(env(safe-area-inset-top,0px) + ${ch}px)`;
     const padH = H - ch;
-    const dp = clamp(Math.min(W * 0.44, padH * 0.62), 110, 220);
+    // both clusters must fit side by side: 14 px margins + a 12 px gap
+    const dp = Math.max(92, Math.min(clamp(Math.min(W * 0.44, padH * 0.62), 110, 220) * PAD_MUL[OPT.padSize][1], (W - 40) / 2.02));
     pad.style.setProperty('--dp', dp + 'px'); pad.style.setProperty('--ab', dp * 1.02 + 'px');
     Object.assign(topBar.style, { top: `calc(env(safe-area-inset-top,0px) + ${ch + 10}px)`, right: 'calc(10px + env(safe-area-inset-right,0px))', left: 'auto', transform: 'none' });
     hintEl.classList.toggle('hide', padH < 330 || !HAS_TOUCH);
     hintEl.style.top = '62px';
   }
+  padLook(portrait);
   pad.querySelectorAll('.cluster').forEach(c => c.classList.toggle('hide', !HAS_TOUCH));
   if (cv.width !== VW) { cv.width = VW; cv.height = VH; }
   if (area && G.state === 'play') G.cam.x = clamp(G.cam.x, area.w * 16 < VW ? (area.w * 16 - VW) / 2 : 0, Math.max(0, area.w * 16 - VW));
@@ -678,18 +729,19 @@ window.addEventListener('keydown', e => {
     const c = e.code;
     if (c === 'ArrowUp' || c === 'KeyW' || c === 'ArrowLeft') { movePause(-1); e.preventDefault(); return; }
     if (c === 'ArrowDown' || c === 'KeyS' || c === 'ArrowRight') { movePause(1); e.preventDefault(); return; }
-    if (c === 'Enter' || c === 'KeyZ' || c === 'Space' || c === 'KeyK') { pauseAct(PAUSE_IDS[G.psel]); e.preventDefault(); return; }
-    if (c === 'KeyX' || c === 'KeyJ' || c === 'Backspace') { pauseAct('resume'); e.preventDefault(); return; }
+    if (c === 'Enter' || c === 'KeyZ' || c === 'Space' || c === 'KeyK') { pauseAct(pauseIds()[G.psel]); e.preventDefault(); return; }
+    if (c === 'KeyX' || c === 'KeyJ' || c === 'Backspace') { pauseBack(); e.preventDefault(); return; }
   }
   const k = KEYMAP[e.code];
   if (k) { input.keys[k] = 1; e.preventDefault(); }
   if (e.repeat) return;
-  if (e.code === 'KeyP' || e.code === 'Escape') { if (G.paused) unpause(); else pause(); }
+  if (e.code === 'KeyP' || e.code === 'Escape') { if (G.paused && G.ppage && e.code === 'Escape') pauseBack(); else if (G.paused) unpause(); else pause(); }
   if (e.code === 'KeyM') toggleMute();
 });
 window.addEventListener('keyup', e => { const k = KEYMAP[e.code]; if (k) input.keys[k] = 0; });
+window.addEventListener('pagehide', saveBest);
 window.addEventListener('blur', () => { input.keys = {}; ptrs.clear(); updTouch(); pause(); });
-document.addEventListener('visibilitychange', () => { if (document.hidden) { pause(); if (SND.ctx) SND.ctx.suspend(); } else if (SND.ctx) SND.ctx.resume(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden) { saveBest(); pause(); if (SND.ctx) SND.ctx.suspend(); } else if (SND.ctx) SND.ctx.resume(); });
 
 // ---------- top buttons ----------
 const SND_ON = '<path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z"/>';
@@ -729,7 +781,7 @@ function loop(now) {
   render();
 }
 requestAnimationFrame(loop);
-window.__SB = { G, P, input, get area() { return area; }, LEVELS, beginPlay, newGame, tick, render, pauseItems, HAPTIC };
+window.__SB = { G, P, input, get area() { return area; }, LEVELS, beginPlay, newGame, tick, render, pauseItems, HAPTIC, spawnEntity, T, OPT, pixMode, layout };
 })();
 </script>
 </body>

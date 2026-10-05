@@ -54,6 +54,8 @@ Kaynak `src/` altında parçalara ayrılmıştır ve sırayla birleştirilir:
 node tools/build.mjs        # src/* -> index.html (+ dist/super-biyik.html)
 node tools/test/mech.mjs    # mekanik testleri (mantar, boru, bayrak, boss…)
 node tools/test/bot.mjs     # otomatik oynayan bot, bölümleri baştan sona dener
+node tools/test/pause.mjs   # duraklatma menüsü + AYARLAR (tuş boyutu/saydamlığı, piksel ölçeği), dokunarak
+node tools/test/fireball.mjs # ateş topu 2-8 kare uzaktaki yer düşmanlarını vuruyor mu
 OUT=/tmp node tools/test/shot.mjs  # ekran görüntüleri
 ```
 
