@@ -53,7 +53,7 @@ Kaynak `src/` altında parçalara ayrılmıştır ve sırayla birleştirilir:
 ```
 node tools/build.mjs        # src/* -> index.html (+ dist/super-biyik.html)
 node tools/test/mech.mjs    # mekanik testleri (mantar, boru, bayrak, boss…)
-node tools/test/bot.mjs     # otomatik oynayan bot, bölümleri baştan sona dener
+node tools/test/bot.mjs     # otomatik oynayan bot, bölümleri baştan sona dener (LV=2 tek bölüm, CP=1 kontrol noktasından)
 OUT=/tmp node tools/test/shot.mjs  # ekran görüntüleri
 ```
 
