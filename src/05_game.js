@@ -16,7 +16,7 @@ function initArt() {
     hero: heroFrames(HERO_PAL), fire: heroFrames(FIRE_PAL), heroStar: STAR_PALS.map(heroFrames),
     kestane: makeKestane(), beetle: makeBeetle(), bee: makeBee(), spiky: makeSpiky(), piranha: makePiranha(),
     boss: makeBoss(), princess: makePrincess(), podoboo: makePodoboo(),
-    mush: makeMushroom('#2bb3a0', '#ffd84a'), oneup: makeMushroom('#ff6aa8', '#fff4e0'), flower: makeFlower(), starItem: makeStar(),
+    mush: makeMushroom('#2bb3a0', '#ffd84a'), oneup: makeMushroom('#ff6aa8', '#fff4e0'), flower: makeFlower(), starItem: makeStar(), bigStar: makeBigStar(),
     coin: makeCoin(), mcoin: makeMiniCoin(), fireball: makeFireball(), bossfire: makeBossFire().map(withFlip), axe: makeAxe(), heart: makeHeart(),
     spring: makeSpring(), castle: makeCastle(), pole: makeFlagPole(), flag: makeFlag(), torch: makeTorch(),
     hill: makeHill(80, 36),
@@ -66,6 +66,7 @@ const G = {
   state: 'title', stateT: 0, frame: 0, levelIdx: 0, level: null, areaIdx: 0, score: 0, coins: 0, lives: 3, time: 300, timeAcc: 0,
   cam: { x: 0 }, freeze: 0, parts: [], cp: false, seq: null, msg: null, hurry: false, shake: 0, sel: 0, tap: null, paused: false,
   unlocked: store.get('unlocked', 1), best: store.get('best', 0), fade: 0,
+  starSaved: store.get('stars', {}), bigRun: 0, bigPre: 0, starTally: null,
 };
 let area = null;
 const P = { x: 0, y: 0, w: 12, h: 15, vx: 0, vy: 0, size: 0, dir: 1, onGround: false, coyote: 0, jbuf: 0, jumping: false, inv: 0, star: 0, anim: 0, skid: false, ducking: false, combo: 0, state: 'play', stateT: 0, onPlat: null, fireCD: 0, throwT: 0, visible: true, pipeTop: 0, transform: 0, tfrom: 0 };
@@ -168,6 +169,8 @@ function spawnEntity(s) {
     case 'puffer': return { ...base, x: x + 2, y: s.y * 16 + 2, cx: x + 8, cy: s.y * 16 + 8, homeX: x + 8, baseY: s.y * 16 + 8, w: 12, h: 12, vx: -0.3, inf: 0, puff: 0, enemy: true, stomp: false, killable: true };
     case 'jelly': return { ...base, x: x + 2, y: s.y * 16 - 2, floorY: s.y * 16 - 2, w: 12, h: 14, enemy: true, stomp: false, killable: true, pulse: 30 + ((s.x * 7) % 40) };
     case 'fish': return { ...base, x: x + 1, y: s.y * 16 + 3, baseY: s.y * 16 + 3, w: 14, h: 10, vx: s.vx || -0.75, kind: s.x % 2, enemy: true, stomp: false, killable: true };
+    // a star already picked up in this run (kept through a checkpoint respawn) does not come back
+    case 'bigstar': return (G.bigRun >> s.idx) & 1 ? null : { ...base, x, y: s.y * 16, w: 16, h: 16, idx: s.idx, ghost: !!((starsSaved(G.level.def.id) >> s.idx) & 1), keep: true };
   }
   return null;
 }
@@ -403,6 +406,7 @@ function startFlag() {
   const pts = h < 40 ? 5000 : h < 64 ? 2000 : h < 96 ? 800 : h < 128 ? 400 : 100;
   addScore(pts, fx + 10, P.y);
   G.flagY = 3 * 16 + 2; G.timeStop = true;
+  bankStars();
   MUSIC.stop(); SND.play('flag');
 }
 function updatePlayerState() {
@@ -683,6 +687,10 @@ function updateEnt(e) {
       break;
     }
     case 'item': updateItem(e); break;
+    case 'bigstar':
+      if (e.t % (e.ghost ? 40 : 18) === 0) G.parts.push({ k: 'twinkle', x: e.x + 2 + ((e.t * 7) % 13), y: e.y + 1 + ((e.t * 5) % 14), t: 0 });
+      if (P.state === 'play' && overlap(P, { x: e.x - 1, y: e.y - 1, w: e.w + 2, h: e.h + 2 })) collectBigStar(e);
+      break;
     case 'fireball': {
       e.vy = Math.min(e.vy + 0.35, 4.5);
       const ox = e.x, r = moveBody(e);
@@ -731,6 +739,29 @@ function waterFire(e) {
     if (o.dead || o.dying || !o.enemy || !o.active || !o.killable || !overlap(e, o)) continue;
     flipKill(o, Math.sign(e.vx)); addScore(200, o.x, o.y); SND.play('kick'); e.dead = true; puff(e.x, e.y); break;
   }
+}
+// ---------- BÜYÜK YILDIZ: 3 hidden big stars per level ----------
+// G.bigRun: bitmask picked up in this run; it only counts (store 'stars') once the level is finished.
+// Dying loses the ones picked up since the last checkpoint (G.bigPre = picked up before reaching it).
+function starsSaved(id) { return G.starSaved[id] || 0; }
+function starCount(m) { return (m & 1) + ((m >> 1) & 1) + ((m >> 2) & 1); }
+function collectBigStar(e) {
+  e.dead = true;
+  const bit = 1 << e.idx;
+  G.bigRun |= bit; if (!G.cp) G.bigPre |= bit;
+  G.bigT = G.frame; G.bigI = e.idx;
+  const cx = e.x + 8, cy = Math.max(e.y + 8, 44); // (popup stays on screen for the one above the sky)
+  addScore(e.ghost ? 1000 : 2000, cx - 10, cy - 14);
+  popup(e.ghost ? 'YILDIZ' : 'BÜYÜK YILDIZ!', cx - (e.ghost ? 15 : 36), cy - 24, '#ffd84a');
+  SND.play('bigstar'); HAPTIC.buzz(BUZZ.power); hitStop(2);
+  starBurst(cx, cy);
+  for (let i = 0; i < 14; i++) { const a = i / 14 * Math.PI * 2; G.parts.push({ k: 'fw', x: cx, y: cy, vx: Math.cos(a) * 2.2, vy: Math.sin(a) * 2.2, t: 22, col: i % 2 ? '#ffd84a' : '#fff4e0' }); }
+}
+// at the flag / axe: bank this run's stars and show the tally
+function bankStars() {
+  const id = G.level.def.id, old = starsSaved(id), now = old | G.bigRun;
+  G.starTally = { got: G.bigRun, old, t: G.frame };
+  if (now !== old) { G.starSaved = { ...G.starSaved, [id]: now }; store.set('stars', G.starSaved); }
 }
 function puff(x, y) { for (let i = 0; i < 4; i++) G.parts.push({ k: 'spark', x: x + 4, y: y + 4, t: 0, vx: rnd(-1, 1), vy: rnd(-1, 1), col: i % 2 ? '#ffd84a' : '#ff6a1a' }); }
 function updateItem(e) {
@@ -784,6 +815,7 @@ function startBridgeSeq(axe) {
   axe.dead = true;
   P.state = 'axe'; P.vx = 0; P.vy = 0; G.timeStop = true; P.star = 0;
   P.x = Math.max(P.x, (area.bridge.x1 + 1) * 16 + 1);
+  bankStars();
   MUSIC.stop();
   for (const e of area.ents) { if (e.type === 'bossfire') e.dead = true; if (e.type === 'boss') { e.frozen = true; } }
   G.seq = { k: 'bridge', t: 0, i: area.bridge.x1 };
@@ -831,6 +863,7 @@ function beginPlay() {
   G.level = def.make();
   G.level.def = def;
   G.time = def.time; G.timeAcc = 0; G.hurry = false; G.timeStop = false; G.seq = null; G.msg = null; G.parts = []; G.freeze = 0;
+  G.bigRun = G.cp ? G.bigPre : 0; G.bigPre = G.bigRun; G.starTally = null; // big stars: only the ones from before the checkpoint survive a death
   enterArea(G.level.start.area);
   Object.assign(P, { vx: 0, vy: 0, size: P.size || 0, dir: 1, onGround: false, coyote: 0, jbuf: 0, jumping: false, inv: 0, star: 0, anim: 0, ducking: false, combo: 0, state: 'play', stateT: 0, onPlat: null, fireCD: 0, throwT: 0, visible: true, transform: 0 });
   P.h = P.size ? 29 : 15;

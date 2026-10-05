@@ -392,6 +392,46 @@ function makeAxe() {
 }
 function makeHeart() { return fromStrings(['.KK.KK.', 'KRRKRRK', 'KRWRRRK', 'KRRRRRK', '.KRRRK.', '..KRK..', '...K...'], { K, R: '#ff4a6a', W: '#ffd0d8' }); }
 function makeMiniCoin() { return fromStrings(['.KKK.', 'KYYOK', 'KYWOK', 'KYYOK', 'KYYOK', 'KYYOK', '.KKK.'], { K: '#7a4a00', Y: '#ffd84a', O: '#f8b800', W: '#fff8c8' }); }
+// "BÜYÜK YILDIZ": a big gold star coin (24x24) with an embossed smiling star; 4 shimmer frames,
+// a see-through ghost for stars saved in an earlier run, and 7x7 HUD / title icons (full, empty)
+function makeBigStar() {
+  const inStar = (x, y, cx, cy, ro, ri) => {
+    const pts = [];
+    for (let i = 0; i < 10; i++) { const r = i % 2 ? ri : ro, a = -Math.PI / 2 + i * Math.PI / 5; pts.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]); }
+    let ins = false;
+    for (let i = 0, j = 9; i < 10; j = i++) {
+      const [xi, yi] = pts[i], [xj, yj] = pts[j];
+      if ((yi > y + .5) !== (yj > y + .5) && x + .5 < (xj - xi) * (y + .5 - yi) / (yj - yi) + xi) ins = !ins;
+    }
+    return ins;
+  };
+  const body = (p, C) => {
+    p.ell(12, 12, 10.6, 10.6, C.rim);
+    p.ell(12, 12, 9.2, 9.2, C.ring);
+    p.ell(12, 12, 7.9, 7.9, C.face);
+    const S = (x, y) => inStar(x, y, 12, 12.2, 7.8, 3.4);
+    p.paint((x, y) => !S(x, y) && (S(x - 1, y) || S(x + 1, y) || S(x, y - 1) || S(x, y + 1) || S(x - 1, y - 1)), C.shade); // engraved edge + emboss shadow
+    p.paint(S, C.star);
+    p.paint((x, y) => S(x, y) && x + y < 20 && !inStar(x, y, 12, 12.2, 5.6, 2.3), C.hi);
+    p.paint((x, y) => S(x, y) && x + y > 27, C.low);
+    if (C.eye) { p.px(10, 11, C.eye); p.px(10, 12, C.eye); p.px(13, 11, C.eye); p.px(13, 12, C.eye); p.px(10, 14, C.mouth); p.px(11, 15, C.mouth); p.px(12, 15, C.mouth); p.px(13, 14, C.mouth); }
+  };
+  const GOLD = { rim: '#c86a00', ring: '#f8b800', face: '#ffc830', shade: '#b86a00', star: '#fff4a0', hi: '#ffffff', low: '#ffe070', eye: K, mouth: '#a8361c' };
+  const fr = [];
+  for (let f = 0; f < 4; f++) {
+    const p = new Pix(24, 24);
+    body(p, GOLD);
+    p.paint((x, y) => Math.hypot(x + .5 - 12, y + .5 - 12) > 9.4 && Math.hypot(x + .5 - 12, y + .5 - 12) < 10.6 && x + y < 16, '#fff8c8'); // rim glint
+    if (f < 3) { const d = 6 + f * 7; p.paint((x, y) => Math.abs(x - y - (d - 12)) < 1.2 && p.get(x, y) !== c32(K), f === 1 ? '#ffffff' : '#fff8c8'); } // shimmer sweeps across
+    p.outline('#5a2e00');
+    fr.push(p.canvas());
+  }
+  const g = new Pix(24, 24);
+  body(g, { rim: '#9ad8ff80', ring: '#5aa8e855', face: '#5aa8e83a', shade: '#2a5aa860', star: '#d8f2ffa0', hi: '#ffffffb0', low: '#b8e2ffa0', eye: '#2a5aa8c0', mouth: '#2a5aa8a0' });
+  g.outline('#e8f8ffb0');
+  const icon = (Y, W, O) => fromStrings(['...K...', '..KYK..', 'KKKYKKK', 'KYYWYYK', '.KYYYK.', 'KYYKYYK', 'KK...KK'], { K: O, Y, W });
+  return { fr, ghost: g.canvas(), icon: icon('#ffd84a', '#fff8c8', K), iconOff: icon('#5a4e7e', '#6a5e8e', K) };
+}
 function makeDebris(col, dark) {
   const p = new Pix(8, 8); p.ell(4, 4, 3.4, 3.4, col); p.paint((x, y) => x + y > 7, dark); p.outline(K); return p.canvas();
 }

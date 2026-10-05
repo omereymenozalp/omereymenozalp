@@ -168,6 +168,11 @@ function drawEnt(e) {
     }
     case 'jelly': D(e.dying ? ART.jelly.dead : ART.jelly.fr[e.vy < -0.35 ? 1 : 0], e.x - 2, e.y - 1); break;
     case 'fish': { const F = ART.fish[e.kind]; D(e.dying ? F.dead : F.swim[(f >> 3) % 2][e.vx < 0 ? 0 : 1], e.x - 1, e.y - 1); break; }
+    case 'bigstar': { // gentle bob; the shimmer sweeps across every ~2 s
+      const y = e.y - 4 + Math.round(Math.sin(G.frame / 14 + e.idx * 2) * 2), ph = (G.frame + e.idx * 37) % 120;
+      D(e.ghost ? ART.bigStar.ghost : ART.bigStar.fr[ph < 12 ? ph >> 2 : 3], e.x - 4, y);
+      break;
+    }
   }
 }
 function drawKelp(d, set) {
@@ -296,6 +301,7 @@ function drawHUD() {
   drawText('×' + (G.ta ? '∞' : G.lives), cx + 8, 5, '#fff4e0', o);
   ctx.drawImage(ART.mcoin, cx, 15);
   drawText('×' + String(G.coins).padStart(2, '0'), cx + 8, 15, '#ffd84a', o);
+  drawStarSlots();
   const wx = Math.round(VW * (G.ta ? 0.6 : 0.7)) - 6; // the stopwatch is wider than the countdown
   drawText('DÜNYA', wx, 5, '#fff4e0', o);
   drawText(G.level ? G.level.def.id : '1-1', wx + 6, 15, '#fff4e0', o);
@@ -306,6 +312,32 @@ function drawHUD() {
   }
   drawText('SÜRE', VW - 8, 5, '#fff4e0', { shadow: sh, align: 'right' });
   drawText(String(Math.max(0, G.time)).padStart(3, '0'), VW - 8, 15, G.time <= 100 && (G.frame >> 4) % 2 ? '#ff6a5a' : '#fff4e0', { shadow: sh, align: 'right' });
+}
+// the level's 3 BÜYÜK YILDIZ slots: a third HUD row under the score (the top centre belongs to the DOM buttons in landscape)
+function drawStarSlots() {
+  if (!G.level) return;
+  const saved = starsSaved(G.level.def.id), have = saved | G.bigRun, x0 = 8;
+  for (let i = 0; i < 3; i++) {
+    const on = (have >> i) & 1, fresh = G.bigI === i && G.frame - G.bigT < 50 && ((G.bigRun >> i) & 1);
+    const y = 25 - (fresh ? Math.round(Math.sin((G.frame - G.bigT) / 50 * Math.PI) * 4) : 0);
+    D(on ? ART.bigStar.icon : ART.bigStar.iconOff, x0 + i * 10, y);
+    if (fresh && (G.frame >> 2) % 2) { ctx.fillStyle = '#ffffff'; ctx.fillRect(x0 + i * 10 + 3, y - 2, 1, 2); ctx.fillRect(x0 + i * 10 + 3, y + 7, 1, 2); }
+  }
+}
+// level clear: which big stars were found in this run (gold), saved before (ghost) or still missing (empty)
+function drawStarTally() {
+  const T0 = G.starTally, k = G.frame - T0.t;
+  if (k < 20) return;
+  const w = 104, h = 50, x = Math.round((VW - w) / 2), y = G.msg ? 98 : 40; // clear of the top buttons in landscape
+  panel(x, y, w, h);
+  drawText('BÜYÜK YILDIZ', VW / 2, y + 4, '#ffd84a', { align: 'center' });
+  for (let i = 0; i < 3; i++) {
+    const got = (T0.got >> i) & 1, old = (T0.old >> i) & 1, d = k - 20 - i * 10;
+    const sx = x + 14 + i * 26, sy = y + 14 - (got && d >= 0 && d < 12 ? Math.round(Math.sin(d / 12 * Math.PI) * 5) : 0);
+    if (got && d >= 0) D(ART.bigStar.fr[d < 12 ? d >> 2 : 3], sx, sy);
+    else { ctx.globalAlpha = old ? 1 : 0.35; D(ART.bigStar.ghost, sx, sy); ctx.globalAlpha = 1; }
+    if (got && !old && d >= 12 && (G.frame >> 4) % 2) drawText('YENİ', sx + 12, y + 41, '#6af0d8', { align: 'center', shadow: K });
+  }
 }
 function renderWorld() {
   const A = area;
@@ -333,6 +365,7 @@ function renderWorld() {
   if (A.water) drawSea(camx);
   drawWeather(A.theme, camx);
   drawHUD();
+  if (G.starTally) drawStarTally();
   if (G.msg) drawMessage();
   if (G.fade > 0) { ctx.fillStyle = 'rgba(0,0,0,' + (G.fade / 14) + ')'; ctx.fillRect(0, 0, VW, VH); }
   if (G.flash > 0) { ctx.fillStyle = 'rgba(255,255,255,' + (G.flash * 0.07) + ')'; ctx.fillRect(0, 0, VW, VH); }
@@ -402,6 +435,10 @@ function renderTitle() {
   drawText('SÜPER', VW / 2, 22 + bob, '#ffd84a', { scale: 2, align: 'center', outline: K });
   drawText('BIYIK', VW / 2 + 2, 48 + bob, K, { scale: 5, align: 'center' });
   drawText('BIYIK', VW / 2, 46 + bob, '#e4572e', { scale: 5, align: 'center', outline: K });
+  // big stars found over all levels, top-left corner
+  const nStars = LEVELS.reduce((a, L) => a + starCount(starsSaved(L.id)), 0);
+  D(ART.bigStar.icon, 7, 7);
+  drawText(nStars + '/' + LEVELS.length * 3, 17, 7, nStars === LEVELS.length * 3 ? '#ffd84a' : '#fff4e0', { shadow: K });
   // mode switch
   const mt = modeToggle();
   ctx.fillStyle = K; ctx.fillRect(mt.x - 2, mt.y - 2, mt.w + 4, mt.h + 4);
@@ -426,19 +463,24 @@ function renderTitle() {
       ctx.fillStyle = 'rgba(230,250,255,.7)'; ctx.fillRect(Math.round(bx), Math.round(by), 2, 2);
     }
     const idCol = locked ? (secret ? '#5a5478' : '#8a8698') : secret ? '#ffd84a' : '#fff4e0';
+    // the level's big stars: three 7x7 icons (gold = found)
+    const stars = sy => { const m = starsSaved(LEVELS[i].id); for (let k = 0; k < 3; k++) D((m >> k) & 1 ? ART.bigStar.icon : ART.bigStar.iconOff, c.x + c.w / 2 - 13 + k * 10, sy); };
     if (TA && !locked) { // time attack: the best time sits on the card
       const has = taBestOf(i) > 0;
       if (grid) {
-        drawText(LEVELS[i].id, c.x + c.w / 2, c.y + 3, idCol, { align: 'center', shadow: K });
-        drawText(cardTime(i), c.x + c.w / 2, c.y + 12, has ? '#ffffff' : '#a89cc0', { align: 'center', shadow: K });
+        drawText(LEVELS[i].id, c.x + c.w / 2, c.y + 1, idCol, { align: 'center', shadow: K });
+        drawText(cardTime(i), c.x + c.w / 2, c.y + 10, has ? '#ffffff' : '#a89cc0', { align: 'center', shadow: K });
+        stars(c.y + 18);
       } else {
-        drawText(LEVELS[i].id, c.x + c.w / 2, c.y + 6, idCol, { align: 'center', scale: 2, shadow: K });
+        drawText(LEVELS[i].id, c.x + c.w / 2, c.y + 4, idCol, { align: 'center', scale: 2, shadow: K });
+        stars(c.y + 20);
         drawText(cardTime(i), c.x + c.w / 2, c.y + c.h - 9, has ? K : '#1d16268c', { align: 'center' });
       }
       return;
     }
+    if (!locked) stars(grid ? c.y + c.h - 9 : c.y + c.h - 10);
     if (locked && grid) drawPadlock(c.x + c.w / 2 + 14, c.y + 12); // padlock beside the id
-    drawText(LEVELS[i].id, c.x + c.w / 2 - (locked && grid ? 6 : 0), c.y + (grid ? 5 : 6), idCol, { align: 'center', scale: 2, shadow: K });
+    drawText(LEVELS[i].id, c.x + c.w / 2 - (locked && grid ? 6 : 0), c.y + (grid ? (locked ? 5 : 2) : 6), idCol, { align: 'center', scale: 2, shadow: K });
     if (locked && !grid) drawPadlock(c.x + c.w / 2 - 4, c.y + 26);
   });
   const selL = LEVELS[G.sel];
@@ -976,6 +1018,7 @@ function loop(now) {
 requestAnimationFrame(loop);
 window.__SB = { G, P, input, get area() { return area; }, LEVELS, beginPlay, newGame, tick, render, pauseItems, HAPTIC, spawnEntity, T, OPT, pixMode, layout };
 Object.assign(window.__SB, { titleCards, modeToggle, taButtons, startTimeAttack, fmtTime, SWIM, SONGS, MAIN_LEVELS });
+window.__SB.stars = { saved: starsSaved, count: starCount, bank: bankStars };
 })();
 </script>
 </body>

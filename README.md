@@ -45,6 +45,8 @@ Simgeler oyunun kendi piksel çizimlerinden üretilir: `node tools/build.mjs && 
 6. **1-6 Ejder Kalesi:** lav, ateş çubukları, zıplayan lav topları ve köprüde Ejder Kral.
 7. **★ Mercan Denizi (gizli bölüm):** kale bitirilince açılır, başlık ekranında yıldızlı 7. kart olarak görünür. Bütünüyle su altında geçer: **A** her basışta yukarı bir kulaç attırır, bırakınca yavaşça batarsın; suda koşmak yoktur. Ateş topları suda dümdüz gider. Yakınına gelince şişen balon balıkları, üstündeyken sana doğru yükselen denizanaları ve sıra hâlinde yüzen balıklar var; suda düşmanların üstüne basılmaz, dokunmak can yakar (ateş topu ve yıldız işe yarar). Mercanlar, sallanan yosunlar, ışık huzmeleri ve kabarcıklar; kendine ait bir şarkı, kontrol noktası, gizli 1UP bloğu ve sıradan görünen bir borunun altında gizli bir hazine mağarası. Sondaki boru seni bayrak direğinin olduğu kumsala çıkarır; bitirince özel bir su altı jeneriği oynar.
 
+**Büyük Yıldızlar:** her bölümde (gizli deniz bölümü dahil) 3 tane gizlenmiş büyük altın yıldız var: biri ustalık isteyen bir zıplamada, biri bir sırrın arkasında (bonus odası, gizli boru, görünmez blok, ekranın üstü, piramit, mağara), biri de ana yolun dışında. Göstergede skorun altındaki 3 yuva o bölümde bulunanları gösterir. Toplanan yıldızlar ancak bölüm bitince (bayrak / balta) kaydedilir: bitirmeden ölürsen, kontrol noktasından önce aldıkların dışında hepsi yerine döner. Daha önce kaydedilmiş yıldızlar şeffaf "hayalet" olarak görünür ve yine puan verir. Başlık kartlarında her bölümün yıldızları, sol üstte toplam (ör. 7/21) yazar.
+
 Güçlendirmeler: büyüme mantarı, ateş çiçeği, yıldız (dokunulmazlık) ve 1UP mantarı. Her bölümde bir kontrol noktası var. Açılan bölümler ve en yüksek skor tarayıcıda saklanır.
 
 ## Oyun modları
@@ -66,6 +68,7 @@ node tools/test/pause.mjs   # duraklatma menüsü + AYARLAR (tuş boyutu/saydaml
 node tools/test/fireball.mjs # ateş topu 2-8 kare uzaktaki yer düşmanlarını vuruyor mu
 node tools/test/sea.mjs     # gizli deniz bölümü: yüzme fiziği, deniz canlıları, kilit, baştan sona yüzen bot
 node tools/test/timeattack.mjs  # zamana karşı: mod anahtarı, kronometre, anında yeniden başlama, rekor kaydı
+node tools/test/stars.mjs   # büyük yıldızlar: yerleşim, her yıldıza gerçek tuşlarla ulaşma, kayıt/ölüm kuralları (SHOTS=klasör ile ekran görüntüleri)
 OUT=/tmp node tools/test/shot.mjs  # ekran görüntüleri
 ```
 
