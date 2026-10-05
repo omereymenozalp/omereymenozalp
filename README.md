@@ -31,3 +31,16 @@ Telefonu yan çevirince görüş alanı genişler. Dik tutunca kontroller ekran�
 4. **1-4 Ejder Kalesi:** lav, ateş çubukları, zıplayan lav topları ve köprüde Ejder Kral.
 
 Güçlendirmeler: büyüme mantarı, ateş çiçeği, yıldız (dokunulmazlık) ve 1UP mantarı. Her bölümde bir kontrol noktası var. Açılan bölümler ve en yüksek skor tarayıcıda saklanır.
+
+## Geliştirme
+
+Kaynak `src/` altında parçalara ayrılmıştır ve sırayla birleştirilir:
+
+```
+node tools/build.mjs        # src/* -> index.html (+ dist/super-biyik.html)
+node tools/test/mech.mjs    # mekanik testleri (mantar, boru, bayrak, boss…)
+node tools/test/bot.mjs     # otomatik oynayan bot, bölümleri baştan sona dener
+OUT=/tmp node tools/test/shot.mjs  # ekran görüntüleri
+```
+
+`index.html` her zaman build çıktısıdır; doğrudan düzenleme, `src/` içindeki parçayı düzenle.

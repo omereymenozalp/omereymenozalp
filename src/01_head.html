@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#140d22">
+<title>Süper Bıyık</title>
+<style>
+/* Layout: the game canvas fills the screen in landscape, controls float over it; in portrait the canvas sits on top and a console-style pad fills the rest. */
+:root{
+  --bg:#140d22;
+  --pad:#1d1430;
+  --btn:rgba(255,244,224,.13);
+  --btn-edge:rgba(255,244,224,.38);
+  --btn-on:rgba(255,216,74,.5);
+  --ink:#fff4e0;
+  --accent:#e4572e;
+  --gold:#ffd84a;
+  color-scheme:dark;
+}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);overflow:hidden;
+  touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;
+  font-family:ui-rounded,"Trebuchet MS",system-ui,sans-serif}
+#app{position:fixed;inset:0;overflow:hidden;background:var(--bg)}
+#game{position:absolute;left:0;top:0;image-rendering:pixelated;image-rendering:crisp-edges;background:#000}
+#pad{position:absolute;left:0;right:0;bottom:0;pointer-events:none}
+#pad.portrait{background:linear-gradient(var(--pad),var(--bg))}
+.cluster{position:absolute;bottom:calc(14px + env(safe-area-inset-bottom,0px));display:flex;align-items:flex-end;gap:12px;pointer-events:auto}
+.cluster.l{left:calc(14px + env(safe-area-inset-left,0px))}
+.cluster.r{right:calc(14px + env(safe-area-inset-right,0px))}
+.dpad{position:relative;width:var(--dp,168px);height:calc(var(--dp,168px)*.76)}
+.btn{position:absolute;display:flex;align-items:center;justify-content:center;border-radius:50%;
+  background:var(--btn);border:2px solid var(--btn-edge);color:var(--ink);box-sizing:border-box;
+  font:800 22px/1 ui-rounded,"Trebuchet MS",system-ui,sans-serif;transition:background .06s,transform .06s}
+.btn svg{width:42%;height:42%;fill:var(--ink);opacity:.9}
+.btn.on{background:var(--btn-on);transform:scale(.94)}
+.dpad .btn{width:calc(var(--dp,168px)*.46);height:calc(var(--dp,168px)*.46);border-radius:30%}
+.dpad .lf{left:0;top:0}
+.dpad .rt{right:0;top:0}
+.dpad .dn{left:50%;bottom:0;width:calc(var(--dp,168px)*.34);height:calc(var(--dp,168px)*.26);transform:translateX(-50%);border-radius:40%}
+.dpad .dn.on{transform:translateX(-50%) scale(.94)}
+.ab{position:relative;width:var(--ab,176px);height:calc(var(--ab,176px)*.8)}
+.ab .btn{width:calc(var(--ab,176px)*.44);height:calc(var(--ab,176px)*.44)}
+.ab .b{left:0;bottom:0}
+.ab .a{right:0;top:0;background:rgba(228,87,46,.32);border-color:rgba(255,160,120,.6)}
+.ab .a.on{background:rgba(255,120,70,.65)}
+.ab .b{background:rgba(255,216,74,.18);border-color:rgba(255,216,74,.5)}
+.ab .b.on{background:rgba(255,216,74,.55)}
+.ab small{position:absolute;top:-1.5em;left:50%;transform:translateX(-50%);white-space:nowrap;text-align:center;font:600 10px/1 system-ui,sans-serif;opacity:.55;letter-spacing:.06em}
+#top{position:absolute;top:calc(8px + env(safe-area-inset-top,0px));right:calc(8px + env(safe-area-inset-right,0px));display:flex;gap:8px;pointer-events:auto}
+#top button{width:40px;height:40px;border-radius:12px;border:2px solid var(--btn-edge);background:rgba(20,13,34,.45);color:var(--ink);
+  display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer}
+#top button svg{width:20px;height:20px;fill:var(--ink)}
+#top button:focus-visible,.btn:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+#hint{position:absolute;left:0;right:0;text-align:center;font:600 12px/1.3 system-ui,sans-serif;opacity:.5;pointer-events:none;padding:0 16px}
+.hide{display:none!important}
+</style>
+</head>
+<body>
+<div id="app">
+  <canvas id="game" width="320" height="240"></canvas>
+  <div id="pad">
+    <div class="cluster l">
+      <div class="dpad">
+        <div class="btn lf" data-k="left"><svg viewBox="0 0 24 24"><path d="M16 3 5 12l11 9z"/></svg></div>
+        <div class="btn rt" data-k="right"><svg viewBox="0 0 24 24"><path d="M8 3l11 9-11 9z"/></svg></div>
+        <div class="btn dn" data-k="down"><svg viewBox="0 0 24 24"><path d="M3 7h18l-9 11z"/></svg></div>
+      </div>
+    </div>
+    <div class="cluster r">
+      <div class="ab">
+        <div class="btn b" data-k="b">B<small>KOŞ · ATEŞ</small></div>
+        <div class="btn a" data-k="a">A<small>ZIPLA</small></div>
+      </div>
+    </div>
+    <div id="hint">Daha geniş görüş için telefonu yan çevir</div>
+  </div>
+  <div id="top">
+    <button id="bMute" aria-label="Sesi aç/kapat"><svg viewBox="0 0 24 24" id="icoSnd"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z"/></svg></button>
+    <button id="bPause" aria-label="Duraklat"><svg viewBox="0 0 24 24"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg></button>
+    <button id="bFull" aria-label="Tam ekran"><svg viewBox="0 0 24 24"><path d="M4 4h6v2H6v4H4zm10 0h6v6h-2V6h-4zM4 14h2v4h4v2H4zm14 0h2v6h-6v-2h4z"/></svg></button>
+  </div>
+</div>
+<script>
