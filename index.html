@@ -2420,6 +2420,7 @@ function spawnEntity(s) {
 function enterArea(idx) {
   G.areaIdx = idx;
   area = G.level.areas[idx];
+  P.safe = null; // KOLAY: the last safe ground is per area
   if (!area.spawned) { area.ents = area.spawns.map(spawnEntity).filter(Boolean); area.spawned = true; }
   area.ents = area.ents.filter(e => e.type !== 'fireball' && e.type !== 'bossfire');
 }
@@ -2508,7 +2509,7 @@ function hurtPlayer() {
 }
 function killPlayer(fell) {
   if (G.state !== 'play') return;
-  G.state = 'dying'; G.stateT = 0; P.state = 'dead';
+  G.state = 'dying'; G.stateT = 0; P.state = 'dead'; P.diedBig = P.size > 0;
   if (P.size > 0) { setSize(0); }
   P.vx = 0; P.vy = fell ? -2 : -5.2; P.star = 0; P.ducking = false; P.sq = 0;
   MUSIC.play('death'); HAPTIC.buzz(BUZZ.death);
@@ -2600,7 +2601,7 @@ function playerControl() {
     if (id === T.COIN) { area.t[ty * area.w + tx] = T.EMPTY; addCoin(); G.score += 200; coinSparkle(tx * 16 + 8, ty * 16 + 8); }
     else if ((id === T.LAVA || id === T.QSAND) && P.y + P.h > ty * 16 + 5) { killPlayer(true); return; }
   }
-  if (P.y > VH + 16) { killPlayer(true); return; }
+  if (P.y > VH + 16) { if (canRescue()) startRescue(); else killPlayer(true); return; }
   // pipes
   if (I.down && P.onGround) {
     for (const w of area.warps) {
@@ -2611,7 +2612,9 @@ function playerControl() {
     }
   }
   // checkpoint
-  if (!G.cp && G.level.checkpoint && G.areaIdx === 0 && P.x > G.level.checkpoint * 16) { G.cp = true; SND.play('checkpoint'); popup('KONTROL NOKTASI', P.x - 30, P.y - 14, '#6af0d8'); }
+  if (isEasy()) easyCheckpoints();
+  else if (!G.cp && G.level.checkpoint && G.areaIdx === 0 && P.x > G.level.checkpoint * 16) { G.cp = true; SND.play('checkpoint'); popup('KONTROL NOKTASI', P.x - 30, P.y - 14, '#6af0d8'); }
+  if (isEasy()) easyTick();
   // goal flag
   if (area.flag && P.x + P.w >= area.flag.x * 16 - 1) startFlag();
   // animation
@@ -2654,6 +2657,7 @@ function startFlag() {
 function updatePlayerState() {
   switch (P.state) {
     case 'play': playerControl(); break;
+    case 'rescue': updateRescue(); break;
     case 'pipeIn':
       P.y += 0.8;
       if (++P.stateT > 40) {
@@ -3068,7 +3072,7 @@ function updateSeq() {
 // ---------- level flow ----------
 function startLevel(idx, fresh) {
   G.levelIdx = idx;
-  if (fresh) { G.cp = false; }
+  if (fresh) { G.cp = false; G.cpx = 0; }
   G.state = 'intro'; G.stateT = G.ta ? 80 : 150;
   MUSIC.stop();
 }
@@ -3076,12 +3080,14 @@ function beginPlay() {
   const def = LEVELS[G.levelIdx];
   G.level = def.make();
   G.level.def = def;
-  G.time = def.time; G.timeAcc = 0; G.hurry = false; G.timeStop = false; G.seq = null; G.msg = null; G.parts = []; G.freeze = 0;
+  G.time = def.time + (isEasy() ? EASY.time : 0); G.timeAcc = 0; G.hurry = false; G.timeStop = false; G.seq = null; G.msg = null; G.parts = []; G.freeze = 0;
   enterArea(G.level.start.area);
   Object.assign(P, { vx: 0, vy: 0, size: P.size || 0, dir: 1, onGround: false, coyote: 0, jbuf: 0, jumping: false, inv: 0, star: 0, anim: 0, ducking: false, combo: 0, state: 'play', stateT: 0, onPlat: null, fireCD: 0, throwT: 0, visible: true, transform: 0 });
   P.h = P.size ? 29 : 15;
   let sx = G.level.start.x, sy = G.level.start.y;
   if (G.cp && G.level.checkpoint) { sx = G.level.checkpoint; sy = groundRowAt(sx); }
+  G.level.cps = isEasy() ? easyCheckpointList() : null; G.rescued = false;
+  if (G.level.cps && G.cpx) { sx = G.cpx; sy = groundRowAt(sx); }
   P.x = sx * 16 + 2; P.y = (sy + 1) * 16 - P.h;
   G.cam.x = clamp(P.x - VW * 0.4, 0, Math.max(0, area.w * 16 - VW));
   if (G.level.checkpoint) G.level.cpY = (groundRowAt(G.level.checkpoint) + 1) * 16;
@@ -3089,6 +3095,7 @@ function beginPlay() {
   for (const e of area.ents) if (e.enemy && e.x > P.x - 48 && e.x < P.x + 64 && e.type !== 'firebar' && e.type !== 'podoboo') e.dead = true;
   G.state = 'play'; G.fade = 0; G.cam.look = 0; P.sq = 0; P.swimT = 0;
   if (G.ta) { G.ta.t = 0; G.ta.after = 0; }
+  if (isEasy()) { P.inv = EASY.grace; P.grace = EASY.grace; } // KOLAY: a star-like second of safety after every (re)spawn
   MUSIC.play(THEMES[area.theme].music);
 }
 // lowest standable spot with two tiles of headroom (ignores ceilings and blocks floating above the floor)
@@ -3134,7 +3141,7 @@ function toTitle() {
   if (SND.ctx) MUSIC.play('title'); else MUSIC.stop();
 }
 function newGame(levelIdx) {
-  G.score = 0; G.coins = 0; G.lives = 3; P.size = 0; G.cp = false; G.ta = null;
+  G.ta = null; G.score = 0; G.coins = 0; G.lives = isEasy() ? EASY.lives : 3; P.size = 0; G.cp = false;
   startLevel(levelIdx, true);
 }
 
@@ -3163,6 +3170,108 @@ function taFinish() {
   if (G.ta.rec) { G.taBest[id] = t; store.set('ta', G.taBest); }
   G.state = 'taresult'; G.stateT = 0; G.rsel = 0; G.parts = [];
   if (MUSIC.name !== 'clear' && MUSIC.name !== 'castleclear') MUSIC.play('clear');
+}
+
+// ---------- difficulty: KOLAY / NORMAL ----------
+// KOLAY (normal mode only; time attack always plays by NORMAL rules): 5 lives, +100 time, a big hero respawns big,
+// two extra checkpoints (about 1/4 and 3/4 of the way), a 1 s star-like grace after every (re)spawn and,
+// once per life, a bubble that carries the hero back out of a pit. NORMAL never touches any of this.
+const EASY = { lives: 5, time: 100, grace: 60, rescueInv: 90, rescueT: 84 };
+G.diff = store.get('diff', 'normal') === 'easy' ? 'easy' : 'normal';
+function isEasy() { return G.diff === 'easy' && !G.ta; }
+Object.assign(SFX, {
+  rescue: (S, t) => {
+    S.tone(180, t, 0.5, { wave: 'tri', slide: 720, slideT: 0.48, vol: 0.16 });
+    ['C5', 'G5', 'E5', 'C6', 'G5', 'E6', 'C7'].forEach((n, i) => S.tone(nf(n), t + i * 0.06, 0.07, { wave: 'sine', slide: nf(n) * 1.5, vol: 0.13 }));
+  },
+  pop: (S, t) => { S.noiseHit(t, 0.07, { freq: 2600, vol: 0.12 }); S.tone(700, t, 0.09, { wave: 'sine', slide: 1900, vol: 0.15 }); },
+});
+// a soap bubble: faint fill, a rim lit from the top left, a curved highlight and a glint
+function makeRescueBubble(w, h) {
+  const p = new Pix(w, h), cx = w / 2, cy = h / 2, rx = w / 2 - 0.5, ry = h / 2 - 0.5;
+  const inside = (x, y, k) => { const dx = (x + .5 - cx) / (rx - k), dy = (y + .5 - cy) / (ry - k); return dx * dx + dy * dy <= 1; };
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    if (!inside(x, y, 0)) continue;
+    const a = Math.atan2(y + .5 - cy, x + .5 - cx);
+    if (!inside(x, y, 1.1)) p.px(x, y, a < -Math.PI / 2 || a > 2.6 ? '#ffffff' : a > 0.2 && a < 1.9 ? '#3aa8e0f0' : '#8adcf8f0');
+    else if (!inside(x, y, 2.1)) p.px(x, y, a > 0.2 && a < 1.9 ? '#8adcf880' : '#d8f6ff70');
+    else if (!inside(x, y, 3.4) && inside(x, y, 2.4) && a > -2.7 && a < -1.7) p.px(x, y, '#ffffffee');
+    else p.px(x, y, '#c8f2ff38');
+  }
+  const gx = Math.round(cx + rx * 0.45), gy = Math.round(cy + ry * 0.5);
+  p.px(gx, gy, '#ffffffd0'); p.px(gx - 1, gy, '#ffffff80'); p.px(gx, gy - 1, '#ffffff80');
+  return p.canvas();
+}
+function easyTick() {
+  // remember the last spot of real ground under both feet (not a moving / falling / sinking platform)
+  if (P.state === 'play' && P.onGround && !P.onPlat) {
+    const row = Math.floor((P.y + P.h + 1) / 16), ok = t => SOLID_ID[t] === 1 || t === T.SEMI;
+    if (P.y + P.h === row * 16 && ok(tileAt(area, Math.floor((P.x + 1) / 16), row)) && ok(tileAt(area, Math.floor((P.x + P.w - 2) / 16), row))) P.safe = { x: P.x, y: row * 16, area: G.areaIdx };
+  }
+  if (P.grace > 0) { P.grace--; if (G.frame % 4 === 0) sparkle(P.x + rnd(0, P.w), P.y + rnd(0, P.h), ['#ffd84a', '#6af0d8', '#ff6a8a'][(G.frame >> 2) % 3]); }
+}
+// ---- pit rescue ----
+function canRescue() { return isEasy() && !G.rescued && !!P.safe && P.safe.area === G.areaIdx; }
+function startRescue() {
+  G.rescued = true; setDuck(false);
+  Object.assign(P, { state: 'rescue', stateT: 0, vx: 0, vy: 0, onPlat: null, onGround: false, jumping: false, sq: 0, inv: 0, grace: 0 });
+  P.rx0 = P.x; P.ry0 = VH + 2 - P.h; P.rx1 = P.safe.x; P.ry1 = P.safe.y - P.h;
+  SND.play('rescue');
+}
+function updateRescue() {
+  const t = Math.min(1, ++P.stateT / EASY.rescueT), e = t * t * (3 - 2 * t);
+  P.x = P.rx0 + (P.rx1 - P.rx0) * e;
+  P.y = P.ry0 + (P.ry1 - P.ry0) * e - Math.sin(t * Math.PI) * 26;
+  if (P.stateT % 7 === 0) bubble(P.x + rnd(0, P.w), P.y + P.h);
+  // the camera may step back so the landing spot is on screen
+  const want = clamp(Math.min(G.cam.x, P.rx1 - 72), 0, Math.max(0, area.w * 16 - VW)), wide = area.w * 16 >= VW;
+  if (wide) G.cam.x = approach(G.cam.x, want, Math.max(2, (G.cam.x - want) * 0.08));
+  if (P.stateT >= EASY.rescueT + 10) {
+    if (wide) G.cam.x = Math.min(G.cam.x, want);
+    P.x = P.rx1; P.y = P.ry1; P.state = 'play'; P.inv = EASY.rescueInv; P.vy = 0; P.jbuf = 0; P.coyote = 0;
+    SND.play('pop'); starBurst(P.x + P.w / 2, P.y + P.h / 2);
+    for (let i = 0; i < 6; i++) bubble(P.x + rnd(-4, P.w + 4), P.y + rnd(0, P.h));
+  }
+}
+// ---- extra checkpoints: about 1/4 and 3/4 of the way, on flat standable floor away from enemies, hazards and pipes ----
+function cpColumnOK(A, tx, avoid, minRow) {
+  if (avoid.some(a => Math.abs(a - tx) < 10)) return false;
+  const y = groundRowAt(tx);
+  if (y < minRow || y > 12) return false;
+  for (let dx = -2; dx <= 2; dx++) {
+    const t = tileAt(A, tx + dx, y + 1);
+    if (!(SOLID_ID[t] === 1 || t === T.SEMI) || groundRowAt(tx + dx) !== y) return false;
+  }
+  for (let dx = -3; dx <= 3; dx++) for (let dy = -3; dy <= 3; dy++) { const t = tileAt(A, tx + dx, y + dy); if (t === T.LAVA || t === T.QSAND) return false; }
+  // walkers near the spawn are cleared by beginPlay; keep clear of the things it leaves alone
+  const KEEP_AWAY = { firebar: 0, piranha: 3, icicle: 3, boss: 12, plat: 2, fallplat: 2, sinkplat: 2, spring: 2 };
+  for (const s of A.spawns) {
+    const r = KEEP_AWAY[s.type]; if (r === undefined) continue;
+    const reach = (s.type === 'firebar' ? Math.ceil((s.len || 6) / 2) + 3 : r) + (s.axis === 'x' ? Math.ceil((s.dist || 0) / 16) : 0);
+    if (tx >= s.x - reach && tx <= s.x + (s.w || 1) - 1 + reach) return false;
+  }
+  for (const w of A.warps) if (tx >= w.tx - 1 && tx <= w.tx + 2) return false;
+  return true;
+}
+function easyCheckpointList() {
+  const L = G.level, A = L.areas[0], mid = L.checkpoint;
+  if (!mid || area !== A) return mid ? [{ x: mid, y: L.cpY || (groundRowAt(mid) + 1) * 16 }] : [];
+  const end = A.flag ? A.flag.x : A.bridge ? A.bridge.x0 : A.w - 12, xs = [mid];
+  for (const want of [(L.start.x + mid) / 2, (mid + end) / 2]) {
+    let found = 0;
+    for (const minRow of [8, 3]) // prefer the main floor over high bonus clouds / ledges
+      for (let d = 0; d <= 24 && !found; d++) for (const tx of d ? [Math.round(want) + d, Math.round(want) - d] : [Math.round(want)]) if (cpColumnOK(A, tx, [L.start.x, mid, end], minRow)) { found = tx; break; }
+    if (found) xs.push(found);
+  }
+  return xs.sort((a, b) => a - b).map(x => ({ x, y: (groundRowAt(x) + 1) * 16 }));
+}
+function easyCheckpoints() {
+  if (G.areaIdx !== 0 || !G.level.cps) return;
+  for (const c of G.level.cps) {
+    if (c.x <= (G.cpx || 0) || P.x <= c.x * 16) continue;
+    G.cpx = c.x; if (c.x === G.level.checkpoint) G.cp = true;
+    SND.play('checkpoint'); popup('KONTROL NOKTASI', P.x - 30, P.y - 14, '#6af0d8');
+  }
 }
 
 function updatePlay() {
@@ -3231,7 +3340,7 @@ function updateDying() {
   if (G.stateT === 190) {
     G.lives--;
     if (G.lives <= 0) gameOver();
-    else { P.size = 0; startLevel(G.levelIdx, false); }
+    else { P.size = isEasy() && P.diedBig ? 1 : 0; startLevel(G.levelIdx, false); } // KOLAY: a big hero comes back big (fire is lost)
   }
 }
 
@@ -3291,6 +3400,7 @@ function drawPlayer() {
   if (G.state === 'play' && P.inv > 0 && P.transform <= 0 && (G.frame >> 2) % 2) return;
   const S = heroSet();
   const bottom = P.y + P.h;
+  if (P.state === 'rescue') { drawRescue(S); return; }
   if (G.state === 'dying') { D(S.s_dead[0], P.x - 2, P.y - 1); return; }
   if (P.transform > 0 && G.freeze > 0) {
     const sz = ((P.transform >> 2) % 2) ? P.size : P.tfrom;
@@ -3312,6 +3422,14 @@ function drawPlayer() {
   if (big && P.throwT > 0 && key !== 'duck') key = 'throw';
   const pair = S[(big ? 'b_' : 's_') + key] || S[(big ? 'b_' : 's_') + 'stand'];
   drawSquash(pair[P.dir > 0 ? 0 : 1], P.x - 2, big ? bottom - 31 : bottom - 16, P.state === 'play' ? P.sq || 0 : 0);
+}
+// KOLAY pit rescue: the hero floats inside a wobbling soap bubble
+function drawRescue(S) {
+  const big = P.size > 0, key = big ? 'rbubbleB' : 'rbubbleS';
+  ART[key] = ART[key] || (big ? makeRescueBubble(30, 40) : makeRescueBubble(26, 26));
+  const img = ART[key], cx = P.x + P.w / 2, cy = P.y + P.h / 2 + (big ? 0 : -1), wob = Math.round(Math.sin(G.frame * 0.25));
+  D(S[big ? 'b_jump' : 's_jump'][P.dir > 0 ? 0 : 1], P.x - 2, P.y + P.h - (big ? 31 : 16) + Math.round(Math.sin(G.frame * 0.12)));
+  ctx.drawImage(img, Math.round(cx - img.width / 2) - wob, Math.round(cy - img.height / 2) + wob, img.width + wob * 2, img.height - wob * 2);
 }
 // squash (s > 0) / stretch (s < 0) around the sprite's bottom centre; render-only
 function drawSquash(img, x, y, s) {
@@ -3472,16 +3590,17 @@ function drawDecor(A, camx) {
     ART.flagL = ART.flagL || ART.flag.map(flipH);
     D(ART.flagL[(G.frame >> 3) % 3], fx + 6 - 18, G.flagY || 3 * 16 + 2);
   }
-  if (G.areaIdx === 0 && G.level.checkpoint) {
-    const x = G.level.checkpoint * 16 + 6, y = G.level.cpY;
-    if (x > camx - 20 && x < camx + VW + 20) {
-      ctx.fillStyle = K; ctx.fillRect(x - 1, y - 30, 4, 30);
-      ctx.fillStyle = '#d8e0d8'; ctx.fillRect(x, y - 29, 2, 29);
-      const fy = G.cp ? y - 29 : y - 12;
-      ctx.fillStyle = K; ctx.fillRect(x + 2, fy - 1, 12, 9);
-      ctx.fillStyle = G.cp ? '#2bb3a0' : '#8a8698'; ctx.fillRect(x + 2, fy, 11, 7);
-      ctx.fillStyle = G.cp ? '#ffd84a' : '#c4c0d4'; ctx.fillRect(x + 6, fy + 2, 3, 3);
-    }
+  if (G.areaIdx === 0 && G.level.cps) { for (const c of G.level.cps) drawCpFlag(c.x * 16 + 6, c.y, camx, c.x <= (G.cpx || 0)); } // KOLAY: every checkpoint
+  else if (G.areaIdx === 0 && G.level.checkpoint) drawCpFlag(G.level.checkpoint * 16 + 6, G.level.cpY, camx, G.cp);
+}
+function drawCpFlag(x, y, camx, on) {
+  if (x > camx - 20 && x < camx + VW + 20) {
+    ctx.fillStyle = K; ctx.fillRect(x - 1, y - 30, 4, 30);
+    ctx.fillStyle = '#d8e0d8'; ctx.fillRect(x, y - 29, 2, 29);
+    const fy = on ? y - 29 : y - 12;
+    ctx.fillStyle = K; ctx.fillRect(x + 2, fy - 1, 12, 9);
+    ctx.fillStyle = on ? '#2bb3a0' : '#8a8698'; ctx.fillRect(x + 2, fy, 11, 7);
+    ctx.fillStyle = on ? '#ffd84a' : '#c4c0d4'; ctx.fillRect(x + 6, fy + 2, 3, 3);
   }
 }
 function drawParts(front) {
@@ -3526,6 +3645,7 @@ function drawHUD() {
   const sh = K;
   const o = { shadow: sh };
   drawText('BIYIK', 8, 5, '#fff4e0', o);
+  if (isEasy()) easyBadge(41, 4);
   drawText(String(G.score).padStart(6, '0'), 8, 15, '#fff4e0', o);
   const cx = Math.round(VW * 0.2) + 10;
   ctx.drawImage(ART.heart, cx - 1, 5);
@@ -3542,6 +3662,12 @@ function drawHUD() {
   }
   drawText('SÜRE', VW - 8, 5, '#fff4e0', { shadow: sh, align: 'right' });
   drawText(String(Math.max(0, G.time)).padStart(3, '0'), VW - 8, 15, G.time <= 100 && (G.frame >> 4) % 2 ? '#ff6a5a' : '#fff4e0', { shadow: sh, align: 'right' });
+}
+// tiny green "K" tag for KOLAY (HUD, beside the name)
+function easyBadge(x, y) {
+  ctx.fillStyle = K; ctx.fillRect(x, y, 9, 9);
+  ctx.fillStyle = '#6af08a'; ctx.fillRect(x + 1, y + 1, 7, 7);
+  drawText('K', x + 2, y + 1, '#1d4a2a');
 }
 function renderWorld() {
   const A = area;
@@ -3604,7 +3730,15 @@ function titleCards() {
   });
 }
 // NORMAL | ZAMANA KARŞI mode switch between the logo and the cards (tap a side, or ▼ / B on the pad)
-function modeToggle() { const w = 144, split = 56; return { x: Math.round((VW - w) / 2), y: VW >= 380 ? 91 : 87, w, h: 13, split }; }
+// KOLAY | NORMAL difficulty switch sits to its left on the same row (tap a side, or B / X on the pad / keyboard)
+const TOGGLE_ROW = { dw: 84, gap: 8, mw: 144 };
+function togglesX() { const R = TOGGLE_ROW; return Math.round((VW - (R.dw + R.gap + R.mw)) / 2); }
+function modeToggle() { const w = TOGGLE_ROW.mw, split = 56; return { x: togglesX() + TOGGLE_ROW.dw + TOGGLE_ROW.gap, y: VW >= 380 ? 91 : 87, w, h: 13, split }; }
+function diffToggle() { const w = TOGGLE_ROW.dw; return { x: togglesX(), y: modeToggle().y, w, h: 13, split: w / 2 }; }
+function toggleDiff(d) {
+  G.diff = d === undefined ? (G.diff === 'easy' ? 'normal' : 'easy') : d; store.set('diff', G.diff);
+  SND.init(); SND.play('select');
+}
 function toggleMode(ta) {
   G.taMode = ta === undefined ? !G.taMode : ta; store.set('tamode', G.taMode);
   SND.init(); SND.play('select');
@@ -3648,6 +3782,16 @@ function renderTitle() {
     drawText(label, x + w / 2, mt.y + 4, on ? K : '#a89cc0', { align: 'center' });
   }
   ctx.fillStyle = K; ctx.fillRect(mt.x + mt.split, mt.y, 1, mt.h);
+  // difficulty switch (dimmed in time attack, which always plays by NORMAL rules)
+  const dt = diffToggle(), EZ = G.diff === 'easy';
+  ctx.fillStyle = K; ctx.fillRect(dt.x - 2, dt.y - 2, dt.w + 4, dt.h + 4);
+  ctx.fillStyle = TA ? '#8a8698' : '#fff4e0'; ctx.fillRect(dt.x - 1, dt.y - 1, dt.w + 2, dt.h + 2);
+  for (const [on, x, w, label, col] of [[EZ, dt.x, dt.split, 'KOLAY', '#6af08a'], [!EZ, dt.x + dt.split, dt.w - dt.split, 'NORMAL', '#ff9a3a']]) {
+    ctx.fillStyle = on ? (TA ? '#7a7290' : col) : '#3a2e5a'; ctx.fillRect(x, dt.y, w, dt.h);
+    ctx.fillStyle = on ? 'rgba(255,255,255,.35)' : 'rgba(255,255,255,.08)'; ctx.fillRect(x, dt.y, w, 2);
+    drawText(label, x + w / 2, dt.y + 4, on ? K : '#a89cc0', { align: 'center' });
+  }
+  ctx.fillStyle = K; ctx.fillRect(dt.x + dt.split, dt.y, 1, dt.h);
   // level cards
   const band = grid ? 6 : 12;
   cards.forEach((c, i) => {
@@ -3703,6 +3847,7 @@ function renderIntro() {
     return;
   }
   drawText('× ' + G.lives, VW / 2 - 4, 127, '#fff4e0');
+  drawText(isEasy() ? 'KOLAY' : 'NORMAL', VW / 2, 160, isEasy() ? '#6af08a' : '#ff9a3a', { align: 'center' });
   drawText(TIPS[G.levelIdx], VW / 2, 176, '#8a8698', { align: 'center' });
   drawText(String(G.score).padStart(6, '0'), VW / 2, 200, '#ffd84a', { align: 'center' });
 }
@@ -4024,9 +4169,13 @@ function updateTitle() {
   if (L) { G.sel = (G.sel + G.unlocked - 1) % G.unlocked; SND.play('select'); }
   if (R) { G.sel = (G.sel + 1) % G.unlocked; SND.play('select'); }
   const Dn = input.down && !G._pd; G._pd = input.down;
-  if (Dn || input.bP || padTaps.down || padTaps.b) toggleMode();
+  if (Dn || padTaps.down) toggleMode();
+  if (input.bP || padTaps.b) toggleDiff();
   let go = input.aP || input.startP;
-  const mt = modeToggle();
+  const mt = modeToggle(), dt = diffToggle();
+  if (G.tap && !G.tap.pad && G.tap.x >= dt.x - 4 && G.tap.x <= dt.x + dt.w + 3 && G.tap.y >= dt.y - 5 && G.tap.y <= dt.y + dt.h + 5) {
+    toggleDiff(G.tap.x >= dt.x + dt.split ? 'normal' : 'easy'); G.tap = null;
+  }
   if (G.tap && !G.tap.pad && G.tap.x >= mt.x - 4 && G.tap.x <= mt.x + mt.w + 4 && G.tap.y >= mt.y - 5 && G.tap.y <= mt.y + mt.h + 5) {
     toggleMode(G.tap.x >= mt.x + mt.split); G.tap = null;
   }
@@ -4303,7 +4452,7 @@ function loop(now) {
 }
 requestAnimationFrame(loop);
 window.__SB = { G, P, input, get area() { return area; }, LEVELS, beginPlay, newGame, tick, render, pauseItems, HAPTIC, spawnEntity, T, OPT, pixMode, layout, STICK, get stick() { return stick && { ...stick, r: stickR }; } };
-Object.assign(window.__SB, { titleCards, modeToggle, taButtons, startTimeAttack, fmtTime, SWIM, SONGS, MAIN_LEVELS });
+Object.assign(window.__SB, { diffToggle, isEasy, EASY, groundRowAt, titleCards, modeToggle, taButtons, startTimeAttack, fmtTime, SWIM, SONGS, MAIN_LEVELS });
 })();
 </script>
 </body>

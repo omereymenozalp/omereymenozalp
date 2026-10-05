@@ -55,6 +55,7 @@ function drawPlayer() {
   if (G.state === 'play' && P.inv > 0 && P.transform <= 0 && (G.frame >> 2) % 2) return;
   const S = heroSet();
   const bottom = P.y + P.h;
+  if (P.state === 'rescue') { drawRescue(S); return; }
   if (G.state === 'dying') { D(S.s_dead[0], P.x - 2, P.y - 1); return; }
   if (P.transform > 0 && G.freeze > 0) {
     const sz = ((P.transform >> 2) % 2) ? P.size : P.tfrom;
@@ -76,6 +77,14 @@ function drawPlayer() {
   if (big && P.throwT > 0 && key !== 'duck') key = 'throw';
   const pair = S[(big ? 'b_' : 's_') + key] || S[(big ? 'b_' : 's_') + 'stand'];
   drawSquash(pair[P.dir > 0 ? 0 : 1], P.x - 2, big ? bottom - 31 : bottom - 16, P.state === 'play' ? P.sq || 0 : 0);
+}
+// KOLAY pit rescue: the hero floats inside a wobbling soap bubble
+function drawRescue(S) {
+  const big = P.size > 0, key = big ? 'rbubbleB' : 'rbubbleS';
+  ART[key] = ART[key] || (big ? makeRescueBubble(30, 40) : makeRescueBubble(26, 26));
+  const img = ART[key], cx = P.x + P.w / 2, cy = P.y + P.h / 2 + (big ? 0 : -1), wob = Math.round(Math.sin(G.frame * 0.25));
+  D(S[big ? 'b_jump' : 's_jump'][P.dir > 0 ? 0 : 1], P.x - 2, P.y + P.h - (big ? 31 : 16) + Math.round(Math.sin(G.frame * 0.12)));
+  ctx.drawImage(img, Math.round(cx - img.width / 2) - wob, Math.round(cy - img.height / 2) + wob, img.width + wob * 2, img.height - wob * 2);
 }
 // squash (s > 0) / stretch (s < 0) around the sprite's bottom centre; render-only
 function drawSquash(img, x, y, s) {
@@ -236,16 +245,17 @@ function drawDecor(A, camx) {
     ART.flagL = ART.flagL || ART.flag.map(flipH);
     D(ART.flagL[(G.frame >> 3) % 3], fx + 6 - 18, G.flagY || 3 * 16 + 2);
   }
-  if (G.areaIdx === 0 && G.level.checkpoint) {
-    const x = G.level.checkpoint * 16 + 6, y = G.level.cpY;
-    if (x > camx - 20 && x < camx + VW + 20) {
-      ctx.fillStyle = K; ctx.fillRect(x - 1, y - 30, 4, 30);
-      ctx.fillStyle = '#d8e0d8'; ctx.fillRect(x, y - 29, 2, 29);
-      const fy = G.cp ? y - 29 : y - 12;
-      ctx.fillStyle = K; ctx.fillRect(x + 2, fy - 1, 12, 9);
-      ctx.fillStyle = G.cp ? '#2bb3a0' : '#8a8698'; ctx.fillRect(x + 2, fy, 11, 7);
-      ctx.fillStyle = G.cp ? '#ffd84a' : '#c4c0d4'; ctx.fillRect(x + 6, fy + 2, 3, 3);
-    }
+  if (G.areaIdx === 0 && G.level.cps) { for (const c of G.level.cps) drawCpFlag(c.x * 16 + 6, c.y, camx, c.x <= (G.cpx || 0)); } // KOLAY: every checkpoint
+  else if (G.areaIdx === 0 && G.level.checkpoint) drawCpFlag(G.level.checkpoint * 16 + 6, G.level.cpY, camx, G.cp);
+}
+function drawCpFlag(x, y, camx, on) {
+  if (x > camx - 20 && x < camx + VW + 20) {
+    ctx.fillStyle = K; ctx.fillRect(x - 1, y - 30, 4, 30);
+    ctx.fillStyle = '#d8e0d8'; ctx.fillRect(x, y - 29, 2, 29);
+    const fy = on ? y - 29 : y - 12;
+    ctx.fillStyle = K; ctx.fillRect(x + 2, fy - 1, 12, 9);
+    ctx.fillStyle = on ? '#2bb3a0' : '#8a8698'; ctx.fillRect(x + 2, fy, 11, 7);
+    ctx.fillStyle = on ? '#ffd84a' : '#c4c0d4'; ctx.fillRect(x + 6, fy + 2, 3, 3);
   }
 }
 function drawParts(front) {
@@ -290,6 +300,7 @@ function drawHUD() {
   const sh = K;
   const o = { shadow: sh };
   drawText('BIYIK', 8, 5, '#fff4e0', o);
+  if (isEasy()) easyBadge(41, 4);
   drawText(String(G.score).padStart(6, '0'), 8, 15, '#fff4e0', o);
   const cx = Math.round(VW * 0.2) + 10;
   ctx.drawImage(ART.heart, cx - 1, 5);
@@ -306,6 +317,12 @@ function drawHUD() {
   }
   drawText('SÜRE', VW - 8, 5, '#fff4e0', { shadow: sh, align: 'right' });
   drawText(String(Math.max(0, G.time)).padStart(3, '0'), VW - 8, 15, G.time <= 100 && (G.frame >> 4) % 2 ? '#ff6a5a' : '#fff4e0', { shadow: sh, align: 'right' });
+}
+// tiny green "K" tag for KOLAY (HUD, beside the name)
+function easyBadge(x, y) {
+  ctx.fillStyle = K; ctx.fillRect(x, y, 9, 9);
+  ctx.fillStyle = '#6af08a'; ctx.fillRect(x + 1, y + 1, 7, 7);
+  drawText('K', x + 2, y + 1, '#1d4a2a');
 }
 function renderWorld() {
   const A = area;
@@ -368,7 +385,15 @@ function titleCards() {
   });
 }
 // NORMAL | ZAMANA KARŞI mode switch between the logo and the cards (tap a side, or ▼ / B on the pad)
-function modeToggle() { const w = 144, split = 56; return { x: Math.round((VW - w) / 2), y: VW >= 380 ? 91 : 87, w, h: 13, split }; }
+// KOLAY | NORMAL difficulty switch sits to its left on the same row (tap a side, or B / X on the pad / keyboard)
+const TOGGLE_ROW = { dw: 84, gap: 8, mw: 144 };
+function togglesX() { const R = TOGGLE_ROW; return Math.round((VW - (R.dw + R.gap + R.mw)) / 2); }
+function modeToggle() { const w = TOGGLE_ROW.mw, split = 56; return { x: togglesX() + TOGGLE_ROW.dw + TOGGLE_ROW.gap, y: VW >= 380 ? 91 : 87, w, h: 13, split }; }
+function diffToggle() { const w = TOGGLE_ROW.dw; return { x: togglesX(), y: modeToggle().y, w, h: 13, split: w / 2 }; }
+function toggleDiff(d) {
+  G.diff = d === undefined ? (G.diff === 'easy' ? 'normal' : 'easy') : d; store.set('diff', G.diff);
+  SND.init(); SND.play('select');
+}
 function toggleMode(ta) {
   G.taMode = ta === undefined ? !G.taMode : ta; store.set('tamode', G.taMode);
   SND.init(); SND.play('select');
@@ -412,6 +437,16 @@ function renderTitle() {
     drawText(label, x + w / 2, mt.y + 4, on ? K : '#a89cc0', { align: 'center' });
   }
   ctx.fillStyle = K; ctx.fillRect(mt.x + mt.split, mt.y, 1, mt.h);
+  // difficulty switch (dimmed in time attack, which always plays by NORMAL rules)
+  const dt = diffToggle(), EZ = G.diff === 'easy';
+  ctx.fillStyle = K; ctx.fillRect(dt.x - 2, dt.y - 2, dt.w + 4, dt.h + 4);
+  ctx.fillStyle = TA ? '#8a8698' : '#fff4e0'; ctx.fillRect(dt.x - 1, dt.y - 1, dt.w + 2, dt.h + 2);
+  for (const [on, x, w, label, col] of [[EZ, dt.x, dt.split, 'KOLAY', '#6af08a'], [!EZ, dt.x + dt.split, dt.w - dt.split, 'NORMAL', '#ff9a3a']]) {
+    ctx.fillStyle = on ? (TA ? '#7a7290' : col) : '#3a2e5a'; ctx.fillRect(x, dt.y, w, dt.h);
+    ctx.fillStyle = on ? 'rgba(255,255,255,.35)' : 'rgba(255,255,255,.08)'; ctx.fillRect(x, dt.y, w, 2);
+    drawText(label, x + w / 2, dt.y + 4, on ? K : '#a89cc0', { align: 'center' });
+  }
+  ctx.fillStyle = K; ctx.fillRect(dt.x + dt.split, dt.y, 1, dt.h);
   // level cards
   const band = grid ? 6 : 12;
   cards.forEach((c, i) => {
@@ -467,6 +502,7 @@ function renderIntro() {
     return;
   }
   drawText('× ' + G.lives, VW / 2 - 4, 127, '#fff4e0');
+  drawText(isEasy() ? 'KOLAY' : 'NORMAL', VW / 2, 160, isEasy() ? '#6af08a' : '#ff9a3a', { align: 'center' });
   drawText(TIPS[G.levelIdx], VW / 2, 176, '#8a8698', { align: 'center' });
   drawText(String(G.score).padStart(6, '0'), VW / 2, 200, '#ffd84a', { align: 'center' });
 }
@@ -788,9 +824,13 @@ function updateTitle() {
   if (L) { G.sel = (G.sel + G.unlocked - 1) % G.unlocked; SND.play('select'); }
   if (R) { G.sel = (G.sel + 1) % G.unlocked; SND.play('select'); }
   const Dn = input.down && !G._pd; G._pd = input.down;
-  if (Dn || input.bP || padTaps.down || padTaps.b) toggleMode();
+  if (Dn || padTaps.down) toggleMode();
+  if (input.bP || padTaps.b) toggleDiff();
   let go = input.aP || input.startP;
-  const mt = modeToggle();
+  const mt = modeToggle(), dt = diffToggle();
+  if (G.tap && !G.tap.pad && G.tap.x >= dt.x - 4 && G.tap.x <= dt.x + dt.w + 3 && G.tap.y >= dt.y - 5 && G.tap.y <= dt.y + dt.h + 5) {
+    toggleDiff(G.tap.x >= dt.x + dt.split ? 'normal' : 'easy'); G.tap = null;
+  }
   if (G.tap && !G.tap.pad && G.tap.x >= mt.x - 4 && G.tap.x <= mt.x + mt.w + 4 && G.tap.y >= mt.y - 5 && G.tap.y <= mt.y + mt.h + 5) {
     toggleMode(G.tap.x >= mt.x + mt.split); G.tap = null;
   }
@@ -1067,7 +1107,7 @@ function loop(now) {
 }
 requestAnimationFrame(loop);
 window.__SB = { G, P, input, get area() { return area; }, LEVELS, beginPlay, newGame, tick, render, pauseItems, HAPTIC, spawnEntity, T, OPT, pixMode, layout, STICK, get stick() { return stick && { ...stick, r: stickR }; } };
-Object.assign(window.__SB, { titleCards, modeToggle, taButtons, startTimeAttack, fmtTime, SWIM, SONGS, MAIN_LEVELS });
+Object.assign(window.__SB, { diffToggle, isEasy, EASY, groundRowAt, titleCards, modeToggle, taButtons, startTimeAttack, fmtTime, SWIM, SONGS, MAIN_LEVELS });
 })();
 </script>
 </body>

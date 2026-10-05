@@ -174,6 +174,7 @@ function spawnEntity(s) {
 function enterArea(idx) {
   G.areaIdx = idx;
   area = G.level.areas[idx];
+  P.safe = null; // KOLAY: the last safe ground is per area
   if (!area.spawned) { area.ents = area.spawns.map(spawnEntity).filter(Boolean); area.spawned = true; }
   area.ents = area.ents.filter(e => e.type !== 'fireball' && e.type !== 'bossfire');
 }
@@ -262,7 +263,7 @@ function hurtPlayer() {
 }
 function killPlayer(fell) {
   if (G.state !== 'play') return;
-  G.state = 'dying'; G.stateT = 0; P.state = 'dead';
+  G.state = 'dying'; G.stateT = 0; P.state = 'dead'; P.diedBig = P.size > 0;
   if (P.size > 0) { setSize(0); }
   P.vx = 0; P.vy = fell ? -2 : -5.2; P.star = 0; P.ducking = false; P.sq = 0;
   MUSIC.play('death'); HAPTIC.buzz(BUZZ.death);
@@ -354,7 +355,7 @@ function playerControl() {
     if (id === T.COIN) { area.t[ty * area.w + tx] = T.EMPTY; addCoin(); G.score += 200; coinSparkle(tx * 16 + 8, ty * 16 + 8); }
     else if ((id === T.LAVA || id === T.QSAND) && P.y + P.h > ty * 16 + 5) { killPlayer(true); return; }
   }
-  if (P.y > VH + 16) { killPlayer(true); return; }
+  if (P.y > VH + 16) { if (canRescue()) startRescue(); else killPlayer(true); return; }
   // pipes
   if (I.down && P.onGround) {
     for (const w of area.warps) {
@@ -365,7 +366,9 @@ function playerControl() {
     }
   }
   // checkpoint
-  if (!G.cp && G.level.checkpoint && G.areaIdx === 0 && P.x > G.level.checkpoint * 16) { G.cp = true; SND.play('checkpoint'); popup('KONTROL NOKTASI', P.x - 30, P.y - 14, '#6af0d8'); }
+  if (isEasy()) easyCheckpoints();
+  else if (!G.cp && G.level.checkpoint && G.areaIdx === 0 && P.x > G.level.checkpoint * 16) { G.cp = true; SND.play('checkpoint'); popup('KONTROL NOKTASI', P.x - 30, P.y - 14, '#6af0d8'); }
+  if (isEasy()) easyTick();
   // goal flag
   if (area.flag && P.x + P.w >= area.flag.x * 16 - 1) startFlag();
   // animation
@@ -408,6 +411,7 @@ function startFlag() {
 function updatePlayerState() {
   switch (P.state) {
     case 'play': playerControl(); break;
+    case 'rescue': updateRescue(); break;
     case 'pipeIn':
       P.y += 0.8;
       if (++P.stateT > 40) {
@@ -822,7 +826,7 @@ function updateSeq() {
 // ---------- level flow ----------
 function startLevel(idx, fresh) {
   G.levelIdx = idx;
-  if (fresh) { G.cp = false; }
+  if (fresh) { G.cp = false; G.cpx = 0; }
   G.state = 'intro'; G.stateT = G.ta ? 80 : 150;
   MUSIC.stop();
 }
@@ -830,12 +834,14 @@ function beginPlay() {
   const def = LEVELS[G.levelIdx];
   G.level = def.make();
   G.level.def = def;
-  G.time = def.time; G.timeAcc = 0; G.hurry = false; G.timeStop = false; G.seq = null; G.msg = null; G.parts = []; G.freeze = 0;
+  G.time = def.time + (isEasy() ? EASY.time : 0); G.timeAcc = 0; G.hurry = false; G.timeStop = false; G.seq = null; G.msg = null; G.parts = []; G.freeze = 0;
   enterArea(G.level.start.area);
   Object.assign(P, { vx: 0, vy: 0, size: P.size || 0, dir: 1, onGround: false, coyote: 0, jbuf: 0, jumping: false, inv: 0, star: 0, anim: 0, ducking: false, combo: 0, state: 'play', stateT: 0, onPlat: null, fireCD: 0, throwT: 0, visible: true, transform: 0 });
   P.h = P.size ? 29 : 15;
   let sx = G.level.start.x, sy = G.level.start.y;
   if (G.cp && G.level.checkpoint) { sx = G.level.checkpoint; sy = groundRowAt(sx); }
+  G.level.cps = isEasy() ? easyCheckpointList() : null; G.rescued = false;
+  if (G.level.cps && G.cpx) { sx = G.cpx; sy = groundRowAt(sx); }
   P.x = sx * 16 + 2; P.y = (sy + 1) * 16 - P.h;
   G.cam.x = clamp(P.x - VW * 0.4, 0, Math.max(0, area.w * 16 - VW));
   if (G.level.checkpoint) G.level.cpY = (groundRowAt(G.level.checkpoint) + 1) * 16;
@@ -843,6 +849,7 @@ function beginPlay() {
   for (const e of area.ents) if (e.enemy && e.x > P.x - 48 && e.x < P.x + 64 && e.type !== 'firebar' && e.type !== 'podoboo') e.dead = true;
   G.state = 'play'; G.fade = 0; G.cam.look = 0; P.sq = 0; P.swimT = 0;
   if (G.ta) { G.ta.t = 0; G.ta.after = 0; }
+  if (isEasy()) { P.inv = EASY.grace; P.grace = EASY.grace; } // KOLAY: a star-like second of safety after every (re)spawn
   MUSIC.play(THEMES[area.theme].music);
 }
 // lowest standable spot with two tiles of headroom (ignores ceilings and blocks floating above the floor)
@@ -888,7 +895,7 @@ function toTitle() {
   if (SND.ctx) MUSIC.play('title'); else MUSIC.stop();
 }
 function newGame(levelIdx) {
-  G.score = 0; G.coins = 0; G.lives = 3; P.size = 0; G.cp = false; G.ta = null;
+  G.ta = null; G.score = 0; G.coins = 0; G.lives = isEasy() ? EASY.lives : 3; P.size = 0; G.cp = false;
   startLevel(levelIdx, true);
 }
 
@@ -917,6 +924,108 @@ function taFinish() {
   if (G.ta.rec) { G.taBest[id] = t; store.set('ta', G.taBest); }
   G.state = 'taresult'; G.stateT = 0; G.rsel = 0; G.parts = [];
   if (MUSIC.name !== 'clear' && MUSIC.name !== 'castleclear') MUSIC.play('clear');
+}
+
+// ---------- difficulty: KOLAY / NORMAL ----------
+// KOLAY (normal mode only; time attack always plays by NORMAL rules): 5 lives, +100 time, a big hero respawns big,
+// two extra checkpoints (about 1/4 and 3/4 of the way), a 1 s star-like grace after every (re)spawn and,
+// once per life, a bubble that carries the hero back out of a pit. NORMAL never touches any of this.
+const EASY = { lives: 5, time: 100, grace: 60, rescueInv: 90, rescueT: 84 };
+G.diff = store.get('diff', 'normal') === 'easy' ? 'easy' : 'normal';
+function isEasy() { return G.diff === 'easy' && !G.ta; }
+Object.assign(SFX, {
+  rescue: (S, t) => {
+    S.tone(180, t, 0.5, { wave: 'tri', slide: 720, slideT: 0.48, vol: 0.16 });
+    ['C5', 'G5', 'E5', 'C6', 'G5', 'E6', 'C7'].forEach((n, i) => S.tone(nf(n), t + i * 0.06, 0.07, { wave: 'sine', slide: nf(n) * 1.5, vol: 0.13 }));
+  },
+  pop: (S, t) => { S.noiseHit(t, 0.07, { freq: 2600, vol: 0.12 }); S.tone(700, t, 0.09, { wave: 'sine', slide: 1900, vol: 0.15 }); },
+});
+// a soap bubble: faint fill, a rim lit from the top left, a curved highlight and a glint
+function makeRescueBubble(w, h) {
+  const p = new Pix(w, h), cx = w / 2, cy = h / 2, rx = w / 2 - 0.5, ry = h / 2 - 0.5;
+  const inside = (x, y, k) => { const dx = (x + .5 - cx) / (rx - k), dy = (y + .5 - cy) / (ry - k); return dx * dx + dy * dy <= 1; };
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    if (!inside(x, y, 0)) continue;
+    const a = Math.atan2(y + .5 - cy, x + .5 - cx);
+    if (!inside(x, y, 1.1)) p.px(x, y, a < -Math.PI / 2 || a > 2.6 ? '#ffffff' : a > 0.2 && a < 1.9 ? '#3aa8e0f0' : '#8adcf8f0');
+    else if (!inside(x, y, 2.1)) p.px(x, y, a > 0.2 && a < 1.9 ? '#8adcf880' : '#d8f6ff70');
+    else if (!inside(x, y, 3.4) && inside(x, y, 2.4) && a > -2.7 && a < -1.7) p.px(x, y, '#ffffffee');
+    else p.px(x, y, '#c8f2ff38');
+  }
+  const gx = Math.round(cx + rx * 0.45), gy = Math.round(cy + ry * 0.5);
+  p.px(gx, gy, '#ffffffd0'); p.px(gx - 1, gy, '#ffffff80'); p.px(gx, gy - 1, '#ffffff80');
+  return p.canvas();
+}
+function easyTick() {
+  // remember the last spot of real ground under both feet (not a moving / falling / sinking platform)
+  if (P.state === 'play' && P.onGround && !P.onPlat) {
+    const row = Math.floor((P.y + P.h + 1) / 16), ok = t => SOLID_ID[t] === 1 || t === T.SEMI;
+    if (P.y + P.h === row * 16 && ok(tileAt(area, Math.floor((P.x + 1) / 16), row)) && ok(tileAt(area, Math.floor((P.x + P.w - 2) / 16), row))) P.safe = { x: P.x, y: row * 16, area: G.areaIdx };
+  }
+  if (P.grace > 0) { P.grace--; if (G.frame % 4 === 0) sparkle(P.x + rnd(0, P.w), P.y + rnd(0, P.h), ['#ffd84a', '#6af0d8', '#ff6a8a'][(G.frame >> 2) % 3]); }
+}
+// ---- pit rescue ----
+function canRescue() { return isEasy() && !G.rescued && !!P.safe && P.safe.area === G.areaIdx; }
+function startRescue() {
+  G.rescued = true; setDuck(false);
+  Object.assign(P, { state: 'rescue', stateT: 0, vx: 0, vy: 0, onPlat: null, onGround: false, jumping: false, sq: 0, inv: 0, grace: 0 });
+  P.rx0 = P.x; P.ry0 = VH + 2 - P.h; P.rx1 = P.safe.x; P.ry1 = P.safe.y - P.h;
+  SND.play('rescue');
+}
+function updateRescue() {
+  const t = Math.min(1, ++P.stateT / EASY.rescueT), e = t * t * (3 - 2 * t);
+  P.x = P.rx0 + (P.rx1 - P.rx0) * e;
+  P.y = P.ry0 + (P.ry1 - P.ry0) * e - Math.sin(t * Math.PI) * 26;
+  if (P.stateT % 7 === 0) bubble(P.x + rnd(0, P.w), P.y + P.h);
+  // the camera may step back so the landing spot is on screen
+  const want = clamp(Math.min(G.cam.x, P.rx1 - 72), 0, Math.max(0, area.w * 16 - VW)), wide = area.w * 16 >= VW;
+  if (wide) G.cam.x = approach(G.cam.x, want, Math.max(2, (G.cam.x - want) * 0.08));
+  if (P.stateT >= EASY.rescueT + 10) {
+    if (wide) G.cam.x = Math.min(G.cam.x, want);
+    P.x = P.rx1; P.y = P.ry1; P.state = 'play'; P.inv = EASY.rescueInv; P.vy = 0; P.jbuf = 0; P.coyote = 0;
+    SND.play('pop'); starBurst(P.x + P.w / 2, P.y + P.h / 2);
+    for (let i = 0; i < 6; i++) bubble(P.x + rnd(-4, P.w + 4), P.y + rnd(0, P.h));
+  }
+}
+// ---- extra checkpoints: about 1/4 and 3/4 of the way, on flat standable floor away from enemies, hazards and pipes ----
+function cpColumnOK(A, tx, avoid, minRow) {
+  if (avoid.some(a => Math.abs(a - tx) < 10)) return false;
+  const y = groundRowAt(tx);
+  if (y < minRow || y > 12) return false;
+  for (let dx = -2; dx <= 2; dx++) {
+    const t = tileAt(A, tx + dx, y + 1);
+    if (!(SOLID_ID[t] === 1 || t === T.SEMI) || groundRowAt(tx + dx) !== y) return false;
+  }
+  for (let dx = -3; dx <= 3; dx++) for (let dy = -3; dy <= 3; dy++) { const t = tileAt(A, tx + dx, y + dy); if (t === T.LAVA || t === T.QSAND) return false; }
+  // walkers near the spawn are cleared by beginPlay; keep clear of the things it leaves alone
+  const KEEP_AWAY = { firebar: 0, piranha: 3, icicle: 3, boss: 12, plat: 2, fallplat: 2, sinkplat: 2, spring: 2 };
+  for (const s of A.spawns) {
+    const r = KEEP_AWAY[s.type]; if (r === undefined) continue;
+    const reach = (s.type === 'firebar' ? Math.ceil((s.len || 6) / 2) + 3 : r) + (s.axis === 'x' ? Math.ceil((s.dist || 0) / 16) : 0);
+    if (tx >= s.x - reach && tx <= s.x + (s.w || 1) - 1 + reach) return false;
+  }
+  for (const w of A.warps) if (tx >= w.tx - 1 && tx <= w.tx + 2) return false;
+  return true;
+}
+function easyCheckpointList() {
+  const L = G.level, A = L.areas[0], mid = L.checkpoint;
+  if (!mid || area !== A) return mid ? [{ x: mid, y: L.cpY || (groundRowAt(mid) + 1) * 16 }] : [];
+  const end = A.flag ? A.flag.x : A.bridge ? A.bridge.x0 : A.w - 12, xs = [mid];
+  for (const want of [(L.start.x + mid) / 2, (mid + end) / 2]) {
+    let found = 0;
+    for (const minRow of [8, 3]) // prefer the main floor over high bonus clouds / ledges
+      for (let d = 0; d <= 24 && !found; d++) for (const tx of d ? [Math.round(want) + d, Math.round(want) - d] : [Math.round(want)]) if (cpColumnOK(A, tx, [L.start.x, mid, end], minRow)) { found = tx; break; }
+    if (found) xs.push(found);
+  }
+  return xs.sort((a, b) => a - b).map(x => ({ x, y: (groundRowAt(x) + 1) * 16 }));
+}
+function easyCheckpoints() {
+  if (G.areaIdx !== 0 || !G.level.cps) return;
+  for (const c of G.level.cps) {
+    if (c.x <= (G.cpx || 0) || P.x <= c.x * 16) continue;
+    G.cpx = c.x; if (c.x === G.level.checkpoint) G.cp = true;
+    SND.play('checkpoint'); popup('KONTROL NOKTASI', P.x - 30, P.y - 14, '#6af0d8');
+  }
 }
 
 function updatePlay() {
@@ -985,6 +1094,6 @@ function updateDying() {
   if (G.stateT === 190) {
     G.lives--;
     if (G.lives <= 0) gameOver();
-    else { P.size = 0; startLevel(G.levelIdx, false); }
+    else { P.size = isEasy() && P.diedBig ? 1 : 0; startLevel(G.levelIdx, false); } // KOLAY: a big hero comes back big (fire is lost)
   }
 }
