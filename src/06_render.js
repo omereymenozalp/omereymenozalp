@@ -277,7 +277,7 @@ function renderTitle() {
   D(bush, bx, 208 - bush.height);
   // hero running, chestnut chasing
   const fr = ['s_w1', 's_w2', 's_w3', 's_w2'][(G.frame >> 3) % 4];
-  const hx = Math.round(VW * 0.62);
+  const hx = Math.round(Math.max(VW * 0.62, VW / 2 + 64));
   D(ART.hero[fr.replace('s_', 'b_')][0], hx, 208 - 31);
   D(ART.kestane.walk[(G.frame >> 3) % 2], hx - 44 + Math.sin(G.frame / 30) * 6, 208 - 16);
   D(ART.beetle.walk[(G.frame >> 3) % 2][1], hx - 70 + Math.sin(G.frame / 24) * 4, 208 - 16);
@@ -308,7 +308,7 @@ function renderTitle() {
   drawText(selName, VW / 2, 152, '#ffd84a', { align: 'center', shadow: K });
   if ((G.frame >> 4) % 2 === 0) drawText(HAS_TOUCH ? 'OYNAMAK İÇİN DOKUN' : 'BAŞLAMAK İÇİN ENTER', VW / 2, 166, '#fff4e0', { align: 'center', shadow: K });
   drawText('EN YÜKSEK ' + String(G.best).padStart(6, '0'), VW / 2, 180, '#c8ecff', { align: 'center', shadow: K });
-  if (!HAS_TOUCH) drawText('← → HAREKET  Z ZIPLA  X KOŞ/ATEŞ  P DURAKLAT', VW / 2, 228, '#fff4e0', { align: 'center', shadow: K });
+  if (!HAS_TOUCH) drawText(VW < 270 ? '← → Z ZIPLA X KOŞ P DUR' : '← → HAREKET  Z ZIPLA  X KOŞ/ATEŞ  P DURAKLAT', VW / 2, 228, '#fff4e0', { align: 'center', shadow: K });
 }
 const TIPS = ["İPUCU: B'YE BASILI TUT, HIZLI KOŞ!", 'İPUCU: GİZLİ BLOKLARI ARA!', 'İPUCU: DÜŞEN PLATFORMDA OYALANMA!', 'İPUCU: BALTAYA ULAŞ, KÖPRÜYÜ YIK!'];
 function renderIntro() {
@@ -504,7 +504,7 @@ function updateTitle() {
   if (L) { G.sel = (G.sel + G.unlocked - 1) % G.unlocked; SND.play('select'); }
   if (R) { G.sel = (G.sel + 1) % G.unlocked; SND.play('select'); }
   let go = input.aP || input.startP;
-  if (G.tap) {
+  if (G.tap && !G.tap.pad) {
     const t = G.tap; let hit = -1;
     titleCards().forEach((c, i) => { if (t.x >= c.x - 4 && t.x <= c.x + c.w + 4 && t.y >= c.y - 4 && t.y <= c.y + c.h + 4) hit = i; });
     if (hit >= 0) { if (hit < G.unlocked) { G.sel = hit; go = true; } else SND.play('bump'); }
@@ -545,7 +545,7 @@ function tick() {
 const app = document.getElementById('app'), pad = document.getElementById('pad'), topBar = document.getElementById('top'), hintEl = document.getElementById('hint');
 function layout() {
   const W = app.clientWidth, H = app.clientHeight;
-  const portrait = H > W * 1.05;
+  const portrait = H > W * 1.05 && H - Math.round(VH * W / 256) >= 220;
   let cw, ch;
   if (!portrait) {
     VW = clamp(Math.round(VH * W / H / 2) * 2, 256, 432);
@@ -608,6 +608,7 @@ cv.addEventListener('pointerdown', e => {
   if (G.state === 'play' && !G.paused && !HAS_TOUCH) G.tap = null;
 });
 window.addEventListener('pointerdown', () => { SND.init(); if (G.state === 'title' && !MUSIC.cur && SND.ctx) MUSIC.play('title'); }, { capture: true });
+['touchend', 'click'].forEach(t => window.addEventListener(t, () => SND.init(), { capture: true }));
 document.addEventListener('contextmenu', e => e.preventDefault());
 document.addEventListener('touchmove', e => { if (e.cancelable) e.preventDefault(); }, { passive: false });
 document.addEventListener('dblclick', e => e.preventDefault());
@@ -625,6 +626,7 @@ window.addEventListener('keydown', e => {
   }
   const k = KEYMAP[e.code];
   if (k) { input.keys[k] = 1; e.preventDefault(); }
+  if (e.repeat) return;
   if (e.code === 'KeyP' || e.code === 'Escape') { if (G.paused) unpause(); else pause(); }
   if (e.code === 'KeyM') toggleMute();
 });

@@ -285,7 +285,7 @@ function playerControl() {
   if (P.fireCD > 0) P.fireCD--;
   if (P.throwT > 0) P.throwT--;
   if (I.bP && P.size === 2 && P.fireCD === 0 && !P.ducking) {
-    let n = 0; for (const e of area.ents) if (e.type === 'fireball') n++;
+    let n = 0; for (const e of area.ents) if (e.type === 'fireball' && !e.dead) n++;
     for (const e of G.area_new) if (e.type === 'fireball') n++;
     if (n < 2) { spawnFireball(); P.fireCD = 8; P.throwT = 8; }
   }
@@ -354,7 +354,7 @@ function playerControl() {
   }
 }
 function startFlag() {
-  P.state = 'flag'; P.stateT = 0; P.vx = 0; P.vy = 0; P.onPlat = null; setDuck(false);
+  P.state = 'flag'; P.stateT = 0; P.vx = 0; P.vy = 0; P.onPlat = null; P.star = 0; setDuck(false);
   const fx = area.flag.x * 16;
   P.x = fx + 4 - P.w + 2;
   const top = 2 * 16;
@@ -449,7 +449,7 @@ function walkerCollide(e) {
     if (!overlap(e, o)) continue;
     if (e.type === 'beetle' && e.state === 'slide') {
       flipKill(o, Math.sign(e.vx)); e.combo = (e.combo || 0) + 1;
-      addScore(COMBO[Math.min(e.combo - 1, COMBO.length - 1)], o.x, o.y); SND.play('kick');
+      if (e.combo > COMBO.length) oneUp(o.x, o.y); else addScore(COMBO[e.combo - 1], o.x, o.y); SND.play('kick');
     } else if (!(o.type === 'beetle' && o.state === 'slide') && !(e.type === 'beetle' && e.state === 'shell') && !(o.type === 'beetle' && o.state === 'shell')) {
       if ((e.x < o.x && e.vx > 0) || (e.x > o.x && e.vx < 0)) e.vx = -e.vx;
     }
@@ -613,7 +613,7 @@ function updateBoss(e) {
     SND.play('bossfire');
   }
   if (P.state === 'play' && overlap(P, { x: e.x + 3, y: e.y + 3, w: e.w - 6, h: e.h - 3 })) {
-    if (P.star > 0) { hitBoss(e); P.inv = 40; } else hurtPlayer();
+    if (P.star > 0) { if (!e.flash) hitBoss(e); } else hurtPlayer();
   }
 }
 function startBridgeSeq(axe) {
@@ -650,7 +650,7 @@ function updateSeq() {
         for (let i = 0; i < 28; i++) { const a = i / 28 * Math.PI * 2; G.parts.push({ k: 'fw', x: cx, y: cy, vx: Math.cos(a) * rnd(1.2, 2), vy: Math.sin(a) * rnd(1.2, 2), t: 0, col: ['#ffd84a', '#ff6a8a', '#6af0d8', '#fff4e0'][i % 4] }); }
         SND.play('burst'); G.score += 500;
       }
-      if (since > 130 && !MUSIC.cur) wipeOut(nextLevel);
+      if (since > 130 && (!MUSIC.cur || !SND.ctx || SND.ctx.state !== 'running' || since > 430)) wipeOut(nextLevel);
     }
   }
 }
@@ -680,7 +680,14 @@ function beginPlay() {
   G.state = 'play'; G.fade = 0; G.cam.look = 0; P.sq = 0;
   MUSIC.play(THEMES[area.theme].music);
 }
-function groundRowAt(tx) { for (let y = 3; y < ROWS; y++) if (SOLID_ID[tileAt(area, tx, y)] || tileAt(area, tx, y) === T.SEMI) return y - 1; return 12; }
+// lowest standable spot with two tiles of headroom (ignores ceilings and blocks floating above the floor)
+function groundRowAt(tx) {
+  for (let y = ROWS - 1; y >= 3; y--) {
+    const t = tileAt(area, tx, y);
+    if ((SOLID_ID[t] || t === T.SEMI) && !SOLID_ID[tileAt(area, tx, y - 1)] && !SOLID_ID[tileAt(area, tx, y - 2)]) return y - 1;
+  }
+  return 12;
+}
 function nextLevel() {
   G.cp = false;
   if (G.levelIdx + 1 < LEVELS.length) {

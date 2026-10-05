@@ -114,6 +114,7 @@ const FONT = {};
     '♥': [0, 0x0A, 0x1F, 0x1F, 0x0E, 0x04, 0], '*': [0, 0x04, 0x15, 0x0E, 0x15, 0x04, 0],
     '(': [0x02, 0x04, 0x08, 0x08, 0x08, 0x04, 0x02], ')': [0x08, 0x04, 0x02, 0x02, 0x02, 0x04, 0x08],
     '"': [0x0A, 0x0A, 0, 0, 0, 0, 0], '=': [0, 0, 0x1F, 0, 0x1F, 0, 0], '%': [0x19, 0x19, 0x02, 0x04, 0x08, 0x13, 0x13],
+    '←': [0, 0x04, 0x08, 0x1F, 0x08, 0x04, 0], '→': [0, 0x04, 0x02, 0x1F, 0x02, 0x04, 0],
     '▶': [0x08, 0x0C, 0x0E, 0x0F, 0x0E, 0x0C, 0x08], '★': [0x04, 0x04, 0x1F, 0x0E, 0x0E, 0x1B, 0x11],
   };
   for (const k in F) FONT[k] = g(F[k]);
@@ -166,7 +167,7 @@ const SND = {
   ctx: null, master: null, music: null, sfx: null, waves: {}, noise: null,
   muted: store.get('muted', false),
   init() {
-    if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; }
+    if (this.ctx) { if (this.ctx.state !== 'running') this.ctx.resume().catch(() => { }); return; }
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
     try { this.ctx = new AC(); } catch (e) { return; }
@@ -340,14 +341,14 @@ const SONGS = {
     }
   },
   clear: { bpm: 150, loop: false, tracks: {
-      lead: `C5:1 E5:1 G5:1 C6:3 r:2 G5:1 C6:1 E6:6 r:2 | F5:1 A5:1 C6:1 F6:3 r:2 D6:1 F6:1 G6:4 G6:1 G6:1 G6:1 A6:1 B6:1 C7:12`,
-      bass: `C3:6 r:2 G2:6 r:2 | F2:6 r:2 G2:8 r:2 C3:12` } },
+      lead: `C5:1 E5:1 G5:1 C6:3 r:2 G5:1 C6:1 E6:4 r:2 | F5:1 A5:1 C6:1 F6:3 r:2 D6:1 F6:1 G6:4 r:2 | G6:1 G6:1 G6:1 A6:1 B6:1 r:1 C7:10`,
+      bass: `C3:6 r:2 G2:6 r:2 | F2:6 r:2 G2:6 r:2 | G2:4 C3:12` } },
   castleclear: { bpm: 132, loop: false, tracks: {
-      lead: `G5:2 C6:2 E6:2 G6:4 E6:2 G6:6 r:2 | A5:2 D6:2 F6:2 A6:4 F6:2 A6:6 r:2 | B5:2 D6:2 G6:2 B6:4 C7:16`,
-      harm: `E5:2 G5:2 C6:2 E6:4 C6:2 E6:6 r:2 | F5:2 A5:2 D6:2 F6:4 D6:2 F6:6 r:2 | G5:2 B5:2 D6:2 G6:4 E6:16`,
-      bass: `C3:4 G3:4 C3:4 G3:4 | D3:4 A3:4 D3:4 A3:4 | G2:4 D3:4 G2:4 B2:4 C3:16` } },
+      lead: `G5:2 C6:2 E6:2 G6:4 E6:2 G6:4 | A5:2 D6:2 F6:2 A6:4 F6:2 A6:4 | B5:2 D6:2 G6:2 B6:4 r:2 C7:4 | C7:16`,
+      harm: `E5:2 G5:2 C6:2 E6:4 C6:2 E6:4 | F5:2 A5:2 D6:2 F6:4 D6:2 F6:4 | G5:2 B5:2 D6:2 G6:4 r:2 E6:4 | E6:16`,
+      bass: `C3:4 G3:4 C3:4 G3:4 | D3:4 A3:4 D3:4 A3:4 | G2:4 D3:4 G2:4 B2:4 | C3:16` } },
   death: { bpm: 140, loop: false, tracks: {
-      lead: `C6:2 B5:2 A#5:2 A5:4 r:2 G5:1 F#5:1 F5:1 E5:8`,
+      lead: `C6:2 B5:2 A#5:2 A5:4 r:2 G5:1 F#5:1 F5:1 E5:9`,
       bass: `C3:4 B2:4 A#2:4 r:2 A2:2 A2:8` } },
   gameover: { bpm: 100, loop: false, tracks: {
       lead: `E5:4 D5:4 C5:4 B4:4 A4:8 r:4 E4:4 A3:12`,
