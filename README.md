@@ -28,7 +28,9 @@ Telefonu yan çevirince görüş alanı genişler. Dik tutunca kontroller ekran�
 1. **1-1 Yeşil Vadi:** gizli bonus odasına inen bir boru, gizli 1UP bloğu ve bayrak direği.
 2. **1-2 Kristal Mağara:** yamyam çiçekli borular, dikenli kirpiler, tuğla labirent ve hareketli platform.
 3. **1-3 Bulut Tepeleri:** ağaç tepeleri, düşen platformlar, arılar ve bir yay.
-4. **1-4 Ejder Kalesi:** lav, ateş çubukları, zıplayan lav topları ve köprüde Ejder Kral.
+4. **1-4 Buz Geçidi:** kaygan buz zemin, oyuncu altından geçince düşen buz sarkıtları, karnının üstünde kayan penguenler ve gizli 1UP bloğu.
+5. **1-5 Kum Çölü:** batan kum çukurları ve üstüne basınca batan kum platformları, zıplayan akrepler, yuvarlanan çalı topları ve içinden hazine odalı bir tünel geçen piramit.
+6. **1-6 Ejder Kalesi:** lav, ateş çubukları, zıplayan lav topları ve köprüde Ejder Kral.
 
 Güçlendirmeler: büyüme mantarı, ateş çiçeği, yıldız (dokunulmazlık) ve 1UP mantarı. Her bölümde bir kontrol noktası var. Açılan bölümler ve en yüksek skor tarayıcıda saklanır.
 

@@ -20,8 +20,9 @@ function initArt() {
     coin: makeCoin(), mcoin: makeMiniCoin(), fireball: makeFireball(), bossfire: makeBossFire().map(withFlip), axe: makeAxe(), heart: makeHeart(),
     spring: makeSpring(), castle: makeCastle(), pole: makeFlagPole(), flag: makeFlag(), torch: makeTorch(),
     hill: makeHill(80, 36),
+    penguin: makePenguin(), scorpion: makeScorpion(), tumble: makeTumbleweed(), icicle: makeIcicle(), sandslab: makeSandSlab(),
   };
-  for (const th of ['over', 'cave', 'sky', 'castle']) {
+  for (const th of ['over', 'cave', 'sky', 'castle', 'ice', 'desert']) {
     TILES[th] = tileArt(th);
     LAYERS[th] = makeLayers(th);
     const br = THEMES[th].brick;
@@ -32,6 +33,8 @@ function initArt() {
       debris: makeDebris(br[0], br[1]),
     };
   }
+  Object.assign(DECOR.ice, { pine: makePine(), snowman: makeSnowman() });
+  Object.assign(DECOR.desert, { cactus0: makeCactus(30, 2), cactus1: makeCactus(21, 1), rock: makeRock(), pyrwall: makePyrWall() });
 }
 
 // =====================================================================
@@ -131,6 +134,11 @@ function spawnEntity(s) {
     case 'plat': return { ...base, x, y: s.y * 16, bx: x, by: s.y * 16, w: s.w * 16, h: 8, axis: s.axis, dist: s.dist, period: s.period, dx: 0, dy: 0, plat: true, keep: true, active: true };
     case 'fallplat': return { ...base, x, y: s.y * 16, w: s.w * 16, h: 8, dx: 0, dy: 0, plat: true, fall: 0, keep: true, active: true };
     case 'spring': return { ...base, x, y: yb - 16, w: 16, h: 16, comp: 0, keep: true };
+    case 'penguin': return { ...base, x: x + 1, y: yb - 14, w: 14, h: 14, vx: -0.45, enemy: true, stomp: true, killable: true, state: 'walk', cool: 40 };
+    case 'scorpion': return { ...base, x: x + 1, y: yb - 12, w: 14, h: 12, vx: -0.4, enemy: true, stomp: true, killable: true, hopT: 60 };
+    case 'tumble': return { ...base, x: x + 1, y: yb - 14, w: 14, h: 14, vx: -1.15, enemy: true, stomp: true, killable: true, bn: 0 };
+    case 'icicle': return { ...base, x: x + 4, y: s.y * 16, w: 8, h: 15, st: 'hang' };
+    case 'sinkplat': return { ...base, x, y: s.y * 16, by: s.y * 16, w: s.w * 16, h: 8, dx: 0, dy: 0, plat: true, keep: true, active: true };
   }
   return null;
 }
@@ -238,6 +246,10 @@ function playerControl() {
     if (P.x + P.w > pl.x && P.x < pl.x + pl.w && !pl.dead) { P.x += pl.dx; P.y = pl.y - P.h; } else P.onPlat = null;
   }
   setDuck(P.size > 0 && I.down && (P.onGround || P.ducking));
+  // slippery ice: weaker grip while standing on ICE tiles
+  const slip = P.onGround && !P.onPlat && tileAt(area, Math.floor((P.x + P.w / 2) / 16), Math.floor((P.y + P.h + 1) / 16)) === T.ICE;
+  const grip = slip ? 0.33 : 1;
+  if (slip && Math.abs(P.vx) > 1 && G.frame % 7 === 0) sparkle(P.x + P.w / 2, P.y + P.h - 1, '#e8f8ff');
   let ax = 0;
   if (I.left && !I.right) ax = -1; else if (I.right && !I.left) ax = 1;
   if (P.ducking && P.onGround) ax = 0;
@@ -245,14 +257,14 @@ function playerControl() {
   P.skid = false;
   if (ax) {
     if (P.onGround && P.vx * ax < 0 && Math.abs(P.vx) > 0.6) {
-      P.vx += ax * 0.24; P.skid = true;
+      P.vx += ax * 0.24 * grip; P.skid = true;
       if (G.frame % 4 === 0) dust(P.x + P.w / 2, P.y + P.h);
     } else {
       P.dir = ax;
-      if (P.vx * ax < max) P.vx = ax * Math.min(P.vx * ax + (P.onGround ? (run ? 0.1 : 0.075) : 0.07), max);
-      else P.vx = approach(P.vx, ax * max, P.onGround ? 0.12 : 0.03);
+      if (P.vx * ax < max) P.vx = ax * Math.min(P.vx * ax + (P.onGround ? (run ? 0.1 : 0.075) * (slip ? 0.45 : 1) : 0.07), max);
+      else P.vx = approach(P.vx, ax * max, P.onGround ? 0.12 * grip : 0.03);
     }
-  } else P.vx = approach(P.vx, 0, P.onGround ? (P.ducking ? 0.06 : 0.09) : 0.025);
+  } else P.vx = approach(P.vx, 0, P.onGround ? (P.ducking ? 0.06 : 0.09) * grip : 0.025);
   // jump (buffered + coyote time for touch screens)
   if (I.aP) P.jbuf = 7; else if (P.jbuf > 0) P.jbuf--;
   if (P.onGround) P.coyote = 6; else if (P.coyote > 0) P.coyote--;
@@ -302,7 +314,7 @@ function playerControl() {
   for (let ty = t0; ty <= t1; ty++) for (let tx = l; tx <= r; tx++) {
     const id = tileAt(area, tx, ty);
     if (id === T.COIN) { area.t[ty * area.w + tx] = T.EMPTY; addCoin(); G.score += 200; sparkle(tx * 16 + 8, ty * 16 + 8); }
-    else if (id === T.LAVA && P.y + P.h > ty * 16 + 5) { killPlayer(true); return; }
+    else if ((id === T.LAVA || id === T.QSAND) && P.y + P.h > ty * 16 + 5) { killPlayer(true); return; }
   }
   if (P.y > VH + 16) { killPlayer(true); return; }
   // pipes
@@ -410,7 +422,7 @@ function stomp(e) {
   else if (e.type === 'beetle') {
     if (e.state === 'walk' || e.state === 'slide') { e.state = 'shell'; e.vx = 0; e.shellT = 400; comboScore(e.x, e.y - 4); }
     else { kickShell(e); }
-  } else if (e.type === 'bee') { flipKill(e, P.dir); comboScore(e.x, e.y - 4); }
+  } else if (e.type === 'bee' || e.type === 'penguin' || e.type === 'scorpion' || e.type === 'tumble') { flipKill(e, P.dir); comboScore(e.x, e.y - 4); }
   P.y = e.y - P.h; bounce();
 }
 function kickShell(e) {
@@ -421,7 +433,7 @@ function kickShell(e) {
 function walkerCollide(e) {
   for (const o of area.ents) {
     if (o === e || !o.active || o.dying || o.dead || !o.enemy || o.flat) continue;
-    if (!(o.type === 'kestane' || o.type === 'beetle' || o.type === 'spiky')) continue;
+    if (!(o.type === 'kestane' || o.type === 'beetle' || o.type === 'spiky' || o.type === 'penguin' || o.type === 'scorpion' || o.type === 'tumble')) continue;
     if (!overlap(e, o)) continue;
     if (e.type === 'beetle' && e.state === 'slide') {
       flipKill(o, Math.sign(e.vx)); e.combo = (e.combo || 0) + 1;
@@ -515,6 +527,66 @@ function updateEnt(e) {
       if (P.state === 'play' && P.vy > 0 && overlap(P, e) && P.y + P.h - e.y < 10) {
         P.y = e.y - P.h; P.vy = input.a ? -9.2 : -7; P.jumping = false; e.comp = 12; SND.play('spring');
       }
+      break;
+    }
+    case 'penguin': {
+      if (e.state === 'slide') {
+        if (--e.slideT <= 0) { e.state = 'walk'; e.y -= 4; e.h = 14; e.vx = Math.sign(e.vx) * 0.45; e.cool = 100; }
+        else if (G.frame % 5 === 0 && e.onGround) dust(e.x + (e.vx > 0 ? 0 : e.w), e.y + e.h);
+      } else {
+        if (e.cool > 0) e.cool--;
+        const dx = P.x + P.w / 2 - (e.x + e.w / 2);
+        if (!e.cool && e.onGround && P.state === 'play' && Math.abs(dx) < 110 && Math.abs(P.y + P.h - e.y - e.h) < 24) {
+          e.state = 'slide'; e.slideT = 75; e.vx = Math.sign(dx || -1) * 2.1; e.y += 4; e.h = 10;
+        }
+      }
+      e.vy = Math.min(e.vy + 0.3, 5);
+      const r = moveBody(e); e.onGround = r.ground; if (r.wall) e.vx = -e.vx;
+      if (e.y > VH + 16) e.dead = true;
+      walkerCollide(e); playerHits(e);
+      break;
+    }
+    case 'scorpion': {
+      e.vy = Math.min(e.vy + 0.3, 5);
+      const r = moveBody(e); if (r.wall) e.vx = -e.vx;
+      if (r.ground) {
+        if (e.hop) { e.hop = false; e.vx = (e.vx < 0 ? -1 : 1) * 0.4; e.hopT = 70 + ((Math.random() * 50) | 0); }
+        else if (--e.hopT <= 0 && P.state === 'play' && Math.abs(P.x - e.x) < 140) { e.hop = true; e.vy = -4.2; e.vx = (P.x < e.x ? -1 : 1) * 1.1; }
+      }
+      if (e.y > VH + 16) e.dead = true;
+      walkerCollide(e); playerHits(e);
+      break;
+    }
+    case 'tumble': {
+      e.vy = Math.min(e.vy + 0.22, 5);
+      const r = moveBody(e); if (r.wall) e.vx = -e.vx;
+      if (r.ground) { e.bn++; e.vy = e.bn % 3 === 0 ? -3.8 : -2.3; }
+      if (e.y > VH + 16) e.dead = true;
+      playerHits(e);
+      break;
+    }
+    case 'icicle': {
+      if (e.st === 'hang') {
+        const loose = !solidAt(Math.floor((e.x + 4) / 16), Math.floor(e.y / 16) - 1);
+        const near = P.state === 'play' && P.x + P.w > e.x - 30 && P.x < e.x + e.w + 18 && P.y > e.y;
+        if (near || loose) { e.st = 'shake'; e.shT = loose ? 6 : 26; SND.play('crack'); }
+      } else if (e.st === 'shake') { if (--e.shT <= 0) e.st = 'fall'; }
+      else {
+        e.vy = Math.min(e.vy + 0.32, 6); e.y += e.vy;
+        const hitP = P.state === 'play' && overlap(P, { x: e.x + 1, y: e.y + 4, w: e.w - 2, h: e.h - 4 });
+        if (hitP) hurtPlayer();
+        if (hitP || solidAt(Math.floor((e.x + e.w / 2) / 16), Math.floor((e.y + e.h) / 16)) || e.y > VH) {
+          e.dead = true; SND.play('shatter');
+          for (let i = 0; i < 6; i++) G.parts.push({ k: 'spark', x: e.x + 4, y: e.y + e.h - 2, t: 0, vx: rnd(-1.4, 1.4), vy: rnd(-2.2, -0.4), col: i % 2 ? '#ffffff' : '#8ccff4' });
+        }
+      }
+      break;
+    }
+    case 'sinkplat': {
+      const on = P.onPlat === e && P.state === 'play';
+      const ny = on ? e.y + 0.42 : Math.max(e.by, e.y - 0.6);
+      e.dx = 0; e.dy = ny - e.y; e.y = ny;
+      if (on && G.frame % 5 === 0) G.parts.push({ k: 'spark', x: e.x + rnd(2, e.w - 2), y: e.y + e.h, t: 0, vx: 0, vy: 0.5, col: '#f0c878' });
       break;
     }
     case 'item': updateItem(e); break;

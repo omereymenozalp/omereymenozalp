@@ -14,7 +14,7 @@ function drawParallax(theme, camx) {
 }
 function tileImg(A, id, tx, ty, TS) {
   switch (id) {
-    case T.GROUND: return tileAt(A, tx, ty - 1) === T.GROUND ? TS.gfill : TS.gtop;
+    case T.GROUND: { const up = tileAt(A, tx, ty - 1); return up === T.GROUND || up === T.ICE ? TS.gfill : TS.gtop; }
     case T.BRICK: return TS.brick;
     case T.Q: return TS.q[[0, 0, 0, 1, 2, 1][(G.frame >> 3) % 6]];
     case T.USED: return TS.used;
@@ -30,6 +30,8 @@ function tileImg(A, id, tx, ty, TS) {
     case T.CASTLE: return TS.castle;
     case T.TRUNK: return TS.trunk;
     case T.CLOUD: return TS.cloud;
+    case T.ICE: return TS.ice;
+    case T.QSAND: return tileAt(A, tx, ty - 1) === T.QSAND ? TS.qsand[(G.frame >> 4) % 4] : TS.qsandTop[(G.frame >> 4) % 4];
   }
   return null;
 }
@@ -133,6 +135,44 @@ function drawEnt(e) {
       break;
     }
     case 'fireball': D(ART.fireball[(f >> 1) % 4], e.x, e.y); break;
+    case 'penguin': {
+      const fl = e.vx < 0 ? 0 : 1, y = e.y + e.h - 16;
+      if (e.dying) D(ART.penguin.dead, e.x - 1, e.y - 2);
+      else D(e.state === 'slide' ? ART.penguin.slide[fl] : ART.penguin.walk[(f >> 3) % 2][fl], e.x - 1, y);
+      break;
+    }
+    case 'scorpion':
+      if (e.dying) D(ART.scorpion.dead, e.x - 1, e.y - 4);
+      else D(ART.scorpion.walk[e.hop ? 0 : (f >> 3) % 2][e.vx < 0 ? 0 : 1], e.x - 1, e.y + e.h - 16);
+      break;
+    case 'tumble':
+      if (e.dying) D(ART.tumble.dead, e.x - 1, e.y - 1);
+      else D(ART.tumble.roll[((Math.floor(-e.x / 5) % 4) + 4) % 4], e.x - 1, e.y - 1);
+      break;
+    case 'icicle': D(ART.icicle, e.x - 4 + (e.st === 'shake' ? ((G.frame >> 1) % 2 ? 1 : -1) : 0), e.y); break;
+    case 'sinkplat': D(ART.sandslab, e.x, e.y); break;
+  }
+}
+// falling snow / drifting sand in front of the ice & desert worlds (stateless, frame-driven)
+function drawWeather(theme, camx) {
+  if (theme === 'ice') {
+    for (let i = 0; i < 48; i++) {
+      const near = hash(i, 5) < 0.3, sp = near ? 0.7 + hash(i, 3) * 0.3 : 0.3 + hash(i, 3) * 0.25;
+      const y = (hash(i, 4) * 260 + G.frame * sp) % 260 - 10;
+      const x = ((hash(i, 1) * (VW + 20) - camx * (near ? 0.9 : 0.5) + Math.sin(G.frame * 0.02 + i) * 6) % (VW + 20) + VW + 20) % (VW + 20) - 10;
+      ctx.fillStyle = near ? '#ffffff' : 'rgba(232,244,255,.75)';
+      ctx.fillRect(Math.round(x), Math.round(y), near ? 2 : 1, near ? 2 : 1);
+    }
+  } else if (theme === 'desert') {
+    ctx.fillStyle = 'rgba(255,236,190,.10)';
+    for (let k = 0; k < 3; k++) { const y = 118 + k * 9 + Math.round(Math.sin(G.frame * 0.03 + k * 2) * 2); ctx.fillRect(0, y, VW, 2); }
+    for (let i = 0; i < 26; i++) {
+      const sp = 1 + hash(i, 3) * 1.6;
+      const x = ((hash(i, 1) * (VW + 20) - G.frame * sp - camx * 0.8) % (VW + 20) + VW + 20) % (VW + 20) - 10;
+      const y = 110 + hash(i, 2) * 125 + Math.sin(G.frame * 0.05 + i) * 3;
+      ctx.fillStyle = hash(i, 6) < 0.5 ? 'rgba(255,232,170,.8)' : 'rgba(216,160,90,.7)';
+      ctx.fillRect(Math.round(x), Math.round(y), hash(i, 7) < 0.4 ? 2 : 1, 1);
+    }
   }
 }
 function drawDecor(A, camx) {
@@ -212,6 +252,7 @@ function renderWorld() {
   if (P.state !== 'pipeIn' && P.state !== 'pipeOut') drawPlayer();
   drawParts();
   ctx.restore();
+  drawWeather(A.theme, camx);
   drawHUD();
   if (G.msg) drawMessage();
   if (G.fade > 0) { ctx.fillStyle = 'rgba(0,0,0,' + (G.fade / 14) + ')'; ctx.fillRect(0, 0, VW, VH); }
@@ -231,11 +272,17 @@ function drawMessage() {
 }
 
 // ---------- screens ----------
-const LEVEL_TINT = { over: ['#5ec948', '#2a7a2a'], cave: ['#5a78e8', '#23264a'], sky: ['#ffc08a', '#e8708a'], castle: ['#e4372e', '#3a1620'] };
-const LEVEL_THEME = ['over', 'cave', 'sky', 'castle'];
+const LEVEL_TINT = { over: ['#5ec948', '#2a7a2a'], cave: ['#5a78e8', '#23264a'], sky: ['#ffc08a', '#e8708a'], ice: ['#a8dcf8', '#2a4a8a'], desert: ['#f0c060', '#a8541c'], castle: ['#e4372e', '#3a1620'] };
+const LEVEL_THEME = ['over', 'cave', 'sky', 'ice', 'desert', 'castle'];
+// one row of cards on wide screens, otherwise a grid of two rows (3 × 2 for six levels)
 function titleCards() {
-  const n = LEVELS.length, w = 52, gap = 8, total = n * w + (n - 1) * gap, x0 = Math.round((VW - total) / 2);
-  return LEVELS.map((L, i) => ({ x: x0 + i * (w + gap), y: 104, w, h: 40 }));
+  const n = LEVELS.length, gap = 8;
+  if (VW >= 380) {
+    const w = Math.min(60, Math.floor((VW - 24 - (n - 1) * gap) / n)), x0 = Math.round((VW - (n * w + (n - 1) * gap)) / 2);
+    return LEVELS.map((L, i) => ({ x: x0 + i * (w + gap), y: 104, w, h: 40 }));
+  }
+  const cols = Math.ceil(n / 2), h = 26, w = Math.min(72, Math.floor((VW - 24 - (cols - 1) * gap) / cols)), x0 = Math.round((VW - (cols * w + (cols - 1) * gap)) / 2);
+  return LEVELS.map((L, i) => ({ x: x0 + (i % cols) * (w + gap), y: 97 + Math.floor(i / cols) * (h + 6), w, h }));
 }
 function renderTitle() {
   const camx = G.frame * 0.6;
@@ -246,42 +293,50 @@ function renderTitle() {
   // bush scrolling
   const bush = DECOR.over.bush56, bx = ((-camx * 1) % (VW + 120) + VW + 120) % (VW + 120) - 60;
   D(bush, bx, 208 - bush.height);
+  const cards = titleCards(), grid = cards[cards.length - 1].y > cards[0].y;
+  const ty = grid ? [86, 162, 175, 222] : [92, 152, 166, 180]; // subtitle, name, prompt, best
   // hero running, chestnut chasing
   const fr = ['s_w1', 's_w2', 's_w3', 's_w2'][(G.frame >> 3) % 4];
-  const hx = Math.round(VW * 0.62);
+  const hx = Math.round(VW * (grid ? 0.76 : 0.62));
   D(ART.hero[fr.replace('s_', 'b_')][0], hx, 208 - 31);
   D(ART.kestane.walk[(G.frame >> 3) % 2], hx - 44 + Math.sin(G.frame / 30) * 6, 208 - 16);
   D(ART.beetle.walk[(G.frame >> 3) % 2][1], hx - 70 + Math.sin(G.frame / 24) * 4, 208 - 16);
-  D(ART.bee.fly[(G.frame >> 2) % 2][1], hx - 100, 150 + Math.sin(G.frame / 20) * 8);
+  if (grid) D(ART.bee.fly[(G.frame >> 2) % 2][1], hx + 22, 160 + Math.sin(G.frame / 20) * 4);
+  else D(ART.bee.fly[(G.frame >> 2) % 2][1], hx - 100, 150 + Math.sin(G.frame / 20) * 8);
   // logo
-  const bob = Math.round(Math.sin(G.frame / 25) * 2);
+  const bob = Math.round(Math.sin(G.frame / 25) * 2) - (grid ? 5 : 0);
   drawText('SÜPER', VW / 2, 22 + bob, '#ffd84a', { scale: 2, align: 'center', outline: K });
   drawText('BIYIK', VW / 2 + 2, 48 + bob, K, { scale: 5, align: 'center' });
   drawText('BIYIK', VW / 2, 46 + bob, '#e4572e', { scale: 5, align: 'center', outline: K });
-  drawText('4 BÖLÜMLÜK PİKSEL MACERA', VW / 2, 92, '#fff4e0', { align: 'center', shadow: K });
+  drawText(LEVELS.length + ' BÖLÜMLÜK PİKSEL MACERA', VW / 2, ty[0], '#fff4e0', { align: 'center', shadow: K });
   // level cards
-  const cards = titleCards();
+  const band = grid ? 6 : 12;
   cards.forEach((c, i) => {
     const locked = i >= G.unlocked, sel = i === G.sel;
     const [c1, c2] = LEVEL_TINT[LEVEL_THEME[i]];
     ctx.fillStyle = K; ctx.fillRect(c.x - 2, c.y - 2, c.w + 4, c.h + 4);
     ctx.fillStyle = sel ? ((G.frame >> 3) % 2 ? '#ffd84a' : '#fff4e0') : '#8a8698'; ctx.fillRect(c.x - 1, c.y - 1, c.w + 2, c.h + 2);
     ctx.fillStyle = locked ? '#3a3648' : c2; ctx.fillRect(c.x, c.y, c.w, c.h);
-    if (!locked) { ctx.fillStyle = c1; ctx.fillRect(c.x, c.y + c.h - 12, c.w, 12); ctx.fillStyle = 'rgba(255,255,255,.25)'; ctx.fillRect(c.x, c.y + c.h - 12, c.w, 2); }
-    drawText(LEVELS[i].id, c.x + c.w / 2, c.y + 6, locked ? '#8a8698' : '#fff4e0', { align: 'center', scale: 2, shadow: K });
-    if (locked) { // padlock
+    if (!locked) { ctx.fillStyle = c1; ctx.fillRect(c.x, c.y + c.h - band, c.w, band); ctx.fillStyle = 'rgba(255,255,255,.25)'; ctx.fillRect(c.x, c.y + c.h - band, c.w, 2); }
+    if (locked && grid) { // padlock beside the id
+      const lx = c.x + c.w / 2 + 14, ly = c.y + 12;
+      ctx.fillStyle = '#8a8698'; ctx.fillRect(lx + 1, ly - 4, 6, 2); ctx.fillRect(lx + 1, ly - 4, 2, 5); ctx.fillRect(lx + 5, ly - 4, 2, 5); ctx.fillRect(lx, ly, 8, 7);
+      ctx.fillStyle = '#3a3648'; ctx.fillRect(lx + 3, ly + 2, 2, 3);
+    }
+    drawText(LEVELS[i].id, c.x + c.w / 2 - (locked && grid ? 6 : 0), c.y + (grid ? 5 : 6), locked ? '#8a8698' : '#fff4e0', { align: 'center', scale: 2, shadow: K });
+    if (locked && !grid) { // padlock
       const lx = c.x + c.w / 2 - 4, ly = c.y + 26;
       ctx.fillStyle = '#8a8698'; ctx.fillRect(lx + 1, ly - 4, 6, 2); ctx.fillRect(lx + 1, ly - 4, 2, 5); ctx.fillRect(lx + 5, ly - 4, 2, 5); ctx.fillRect(lx, ly, 8, 7);
       ctx.fillStyle = '#3a3648'; ctx.fillRect(lx + 3, ly + 2, 2, 3);
     }
   });
   const selName = LEVELS[G.sel].name;
-  drawText(selName, VW / 2, 152, '#ffd84a', { align: 'center', shadow: K });
-  if ((G.frame >> 4) % 2 === 0) drawText(HAS_TOUCH ? 'OYNAMAK İÇİN DOKUN' : 'BAŞLAMAK İÇİN ENTER', VW / 2, 166, '#fff4e0', { align: 'center', shadow: K });
-  drawText('EN YÜKSEK ' + String(G.best).padStart(6, '0'), VW / 2, 180, '#c8ecff', { align: 'center', shadow: K });
-  if (!HAS_TOUCH) drawText('← → HAREKET  Z ZIPLA  X KOŞ/ATEŞ  P DURAKLAT', VW / 2, 228, '#fff4e0', { align: 'center', shadow: K });
+  drawText(selName, VW / 2, ty[1], '#ffd84a', { align: 'center', shadow: K });
+  if ((G.frame >> 4) % 2 === 0) drawText(HAS_TOUCH ? 'OYNAMAK İÇİN DOKUN' : 'BAŞLAMAK İÇİN ENTER', VW / 2, ty[2], '#fff4e0', { align: 'center', shadow: K });
+  drawText('EN YÜKSEK ' + String(G.best).padStart(6, '0'), VW / 2, ty[3], '#c8ecff', { align: 'center', shadow: K });
+  if (!HAS_TOUCH && !grid) drawText('← → HAREKET  Z ZIPLA  X KOŞ/ATEŞ  P DURAKLAT', VW / 2, 228, '#fff4e0', { align: 'center', shadow: K });
 }
-const TIPS = ["İPUCU: B'YE BASILI TUT, HIZLI KOŞ!", 'İPUCU: GİZLİ BLOKLARI ARA!', 'İPUCU: DÜŞEN PLATFORMDA OYALANMA!', 'İPUCU: BALTAYA ULAŞ, KÖPRÜYÜ YIK!'];
+const TIPS = ["İPUCU: B'YE BASILI TUT, HIZLI KOŞ!", 'İPUCU: GİZLİ BLOKLARI ARA!', 'İPUCU: DÜŞEN PLATFORMDA OYALANMA!', 'İPUCU: BUZDA KAYARSIN, ERKEN FREN YAP!', 'İPUCU: KUM PLATFORMU BATAR, ACELE ET!', 'İPUCU: BALTAYA ULAŞ, KÖPRÜYÜ YIK!'];
 function renderIntro() {
   ctx.fillStyle = '#0b0714'; ctx.fillRect(0, 0, VW, VH);
   const def = LEVELS[G.levelIdx];
@@ -289,7 +344,9 @@ function renderIntro() {
   drawText('DÜNYA ' + def.id, VW / 2, 62, '#fff4e0', { scale: 2, align: 'center' });
   drawText(def.name, VW / 2, 90, c1, { align: 'center' });
   const set = P.size === 2 ? ART.fire : ART.hero;
-  D((P.size ? set.b_stand : set.s_stand)[0], VW / 2 - 26, P.size ? 108 : 122);
+  const TS = TILES[LEVEL_THEME[G.levelIdx]];
+  ctx.drawImage(TS.gtop, VW / 2 - 34, 138); ctx.drawImage(TS.gtop, VW / 2 - 18, 138);
+  D((P.size ? set.b_stand : set.s_stand)[0], VW / 2 - 26, P.size ? 107 : 122);
   drawText('× ' + G.lives, VW / 2 - 4, 127, '#fff4e0');
   drawText(TIPS[G.levelIdx], VW / 2, 176, '#8a8698', { align: 'center' });
   drawText(String(G.score).padStart(6, '0'), VW / 2, 200, '#ffd84a', { align: 'center' });

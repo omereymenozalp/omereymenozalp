@@ -4,13 +4,15 @@ const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromi
 const page = await (await browser.newContext({ viewport: { width: 844, height: 390 } })).newPage();
 const errs = []; page.on('pageerror', e => errs.push(e.message));
 await page.goto(new URL('../../index.html', import.meta.url).href);
-for (let lv = 0; lv < 4; lv++) {
+const ONLY = process.env.LV ? process.env.LV.split(',').map(Number) : null;
+for (let lv = 0; lv < 6; lv++) {
+  if (ONLY && !ONLY.includes(lv)) continue;
   const r = await page.evaluate((lv) => {
     const S = window.__SB, G = S.G, P = S.P, I = S.input;
-    G.unlocked = 4; S.newGame(lv); G.lives = 99;
+    G.unlocked = 6; S.newGame(lv); G.lives = 99;
     for (let k = 0; k < 160; k++) S.tick();
     const deaths = []; let hold = 0, f = 0, stuck = 0, lastX = 0;
-    const solid = (x, y) => { const A = S.area; const tx = Math.floor(x / 16), ty = Math.floor(y / 16); if (tx < 0 || tx >= A.w) return true; if (ty < 0 || ty >= 15) return false; return [1,2,3,4,5,6,7,8,9,11,15,17].includes(A.t[ty * A.w + tx]) || (A.t[ty*A.w+tx]===10); };
+    const solid = (x, y) => { const A = S.area; const tx = Math.floor(x / 16), ty = Math.floor(y / 16); if (tx < 0 || tx >= A.w) return true; if (ty < 0 || ty >= 15) return false; return [1,2,3,4,5,6,7,8,9,11,15,17,18].includes(A.t[ty * A.w + tx]) || (A.t[ty*A.w+tx]===10); };
     const platUnder = (x) => S.area.ents.some(e => e.plat && x > e.x && x < e.x + e.w && e.y > P.y);
     while (f < 9000 && (G.state === 'play' || G.state === 'dying' || G.state === 'intro')) {
       f++;
