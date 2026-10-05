@@ -116,6 +116,26 @@ function autoDecor(A, seed) {
       x += 3 + ((r() * 6) | 0);
     }
   }
+  if (th === 'sea' || th === 'beach') {
+    let x = 2;
+    while (x < A.w - 3) {
+      const gy = groundTopAt(x);
+      if (gy > 0 && groundTopAt(x + 1) === gy && groundTopAt(x + 2) === gy) {
+        const k = r(), X = x * 16, Y = gy * 16 + 1;
+        if (th === 'beach') {
+          if (k < 0.3) { A.decor.push({ k: 'palm', x: X - 12, y: Y }); x += 3; }
+          else if (k < 0.55) A.decor.push({ k: 'shell', x: X + 3, y: Y });
+          else if (k < 0.75) A.decor.push({ k: 'starfish', x: X + 2, y: Y });
+        } else if (k < 0.24) { A.decor.push({ k: 'kelp', x: X + 6, y: Y - 1, n: 5 + ((r() * 9) | 0), ph: r() * 6 }); if (r() < 0.6) A.decor.push({ k: 'kelp', x: X + 15, y: Y - 1, n: 3 + ((r() * 6) | 0), ph: r() * 6 }); }
+        else if (k < 0.46) { A.decor.push({ k: 'coral' + ((r() * 3) | 0), x: X - 4, y: Y }); x += 1; }
+        else if (k < 0.56) { A.decor.push({ k: 'fan', x: X - 2, y: Y }); x += 1; }
+        else if (k < 0.68) A.decor.push({ k: 'anemone', x: X, y: Y });
+        else if (k < 0.78) A.decor.push({ k: 'rock', x: X - 2, y: Y });
+        else if (k < 0.88) A.decor.push({ k: r() < 0.5 ? 'shell' : 'starfish', x: X + 4, y: Y });
+      }
+      x += 2 + ((r() * 4) | 0);
+    }
+  }
   if (th === 'castle') {
     for (let x = 6; x < A.w - 2; x += 11) A.decor.push({ k: 'torch', x: x * 16 + 3, y: 7 * 16, anim: true });
   }
@@ -368,4 +388,75 @@ const LEVELS = [
       return { areas: [A], start: { area: 0, x: 2, y: 7 }, checkpoint: 90 };
     }
   },
+  {
+    // secret level: unlocked by beating the castle (the ending). The whole first area is underwater (A.water).
+    id: '★', name: 'MERCAN DENİZİ', time: 300, secret: true, make() {
+      const A = newArea('sea', 184), b = builder(A);
+      A.water = true;
+      b.ground(0, 45).ground(51, 119).ground(126, 183);
+      A.decor.push({ k: 'sign', x: 6 * 16, y: 13 * 16 });
+      // warm-up: learn to swim up to the blocks
+      b.row(11, 9, '?M?');
+      b.coins(16, 6, 4);
+      b.fill(21, 10, 22, 12, T.SOLID).coins(21, 8, 2);
+      b.e('fish', 28, 6).e('fish', 30, 6).e('fish', 32, 6);
+      b.e('puffer', 32, 10);
+      // rock arch: hanging rocks above, boulders below -> swim through the middle
+      b.fill(36, 0, 41, 4, T.SOLID).fill(37, 11, 40, 12, T.SOLID);
+      b.coins(37, 7, 4);
+      b.e('jelly', 43, 11);
+      // first trench (don't sink!)
+      b.coins(46, 8, 5);
+      b.e('fish', 52, 9);
+      b.row(54, 8, 'BBPBB');
+      b.e('puffer', 58, 11);
+      // secret: this ordinary-looking pipe drops into a sunken treasure grotto
+      b.pipe(62, 2, { warp: { area: 2, tx: 3, ty: 3, mode: 'drop' } });
+      b.e('fish', 67, 4).e('fish', 69, 4).e('fish', 71, 4);
+      b.e('puffer', 68, 8);
+      // rock maze with a hidden 1UP where you have to swim up
+      b.fill(73, 0, 74, 7, T.SOLID).fill(79, 7, 80, 12, T.SOLID).fill(85, 0, 86, 7, T.SOLID);
+      b.row(76, 7, 'H');
+      b.coins(79, 4, 2).coins(81, 11, 3);
+      b.e('jelly', 83, 11);
+      // checkpoint (92), star, fish from every direction
+      b.row(96, 8, '?S?');
+      b.e('fish', 101, 10).e('fish', 104, 5).e('fish', 107, 8).e('fish', 110, 3);
+      b.e('puffer', 104, 11);
+      b.pipe(112, 2);
+      b.e('jelly', 116, 11);
+      // second trench: jellyfish rise from the deep
+      b.coins(120, 6, 6);
+      b.e('jelly', 121, 12).e('jelly', 124, 12);
+      // pillars
+      b.fill(130, 9, 131, 12, T.SOLID).fill(136, 0, 137, 5, T.SOLID).fill(142, 8, 143, 12, T.SOLID);
+      b.coins(130, 7, 2).coins(142, 6, 2);
+      b.e('puffer', 134, 9).e('puffer', 140, 5);
+      b.row(147, 8, '?M?');
+      b.e('fish', 152, 4).e('fish', 154, 4).e('fish', 156, 4).e('fish', 153, 10).e('fish', 155, 10);
+      b.e('jelly', 158, 12).e('jelly', 162, 12).e('jelly', 166, 12);
+      // exit pipe up to the beach
+      b.coins(168, 9, 3);
+      b.pipe(172, 2, { warp: { area: 1, tx: 2, ty: 11, mode: 'up' } });
+      A.decor.push({ k: 'arrow', x: 172 * 16 + 10, y: 10 * 16 - 2 });
+      b.fill(176, 0, 183, 12, T.SOLID);
+      autoDecor(A, 77);
+      // the beach with the flagpole
+      const B = newArea('beach', 30), bb = builder(B);
+      bb.ground(0, 29).pipe(2, 2).coins(7, 9, 3);
+      bb.flag(17); bb.castle(21);
+      autoDecor(B, 9);
+      // sunken treasure grotto (secret)
+      const R = newArea('sea', 28), rb = builder(R);
+      R.water = true;
+      rb.ground(0, 27).fill(0, 0, 27, 1, T.SOLID).fill(0, 2, 0, 12, T.SOLID).fill(27, 2, 27, 12, T.SOLID);
+      rb.coins(4, 11, 15).coins(5, 8, 13).coins(7, 5, 9);
+      rb.row(12, 3, 'U');
+      rb.pipe(23, 2, { warp: { area: 0, tx: 112, ty: 11, mode: 'up' } });
+      autoDecor(R, 13);
+      return { areas: [A, B, R], start: { area: 0, x: 3, y: 12 }, checkpoint: 92 };
+    }
+  },
 ];
+// the first six levels form the main adventure; anything after is post-game content
+const MAIN_LEVELS = LEVELS.filter(L => !L.secret).length;

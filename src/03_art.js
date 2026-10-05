@@ -503,6 +503,73 @@ function makeSandSlab() {
   for (let x = 1; x < 31; x++) for (let y = 3; y < 8; y++) if (hash(x + 9, y + 31) < 0.1) p.px(x, y, '#f0c070');
   return p.canvas();
 }
+// --- sea creatures (drawn facing left) ---
+function makePuffer() {
+  const Y = '#ffc83a', D = '#d8901a', W = '#fff4e0', R = '#e4572e';
+  const swim = [];
+  for (let f = 0; f < 2; f++) {
+    const p = new Pix(16, 16);
+    p.ell(14.2, 8, 1.8, 3 - f, D);
+    p.ell(7.6, 8.5, 6, 5.4, Y);
+    p.paint((x, y) => y >= 11, W);
+    p.paint((x, y) => y < 11 && (x * 5 + y * 3) % 9 === 0, D);
+    p.px(8, 2, D); p.px(9, 2, D); p.px(10, 3, D);
+    p.rect(3, 6, 3, 3, '#ffffff'); p.px(3, 7, K); p.px(3, 8, K);
+    p.px(1, 10, R); p.px(2, 10, R);
+    p.ell(9, 10.5 + f * 0.6, 1.8, 1.1, D);
+    p.outline(K);
+    swim.push(withFlip(p.canvas()));
+  }
+  const b = new Pix(24, 24);
+  for (let i = 0; i < 14; i++) {
+    const a = i / 14 * Math.PI * 2;
+    for (let r = 8.5; r < 11.6; r += 0.5) b.px(12 + Math.cos(a) * r, 12 + Math.sin(a) * r, r > 10.4 ? W : '#e8d8b0');
+  }
+  b.ell(12, 12, 9, 9, Y);
+  b.paint((x, y) => y >= 15 && Math.hypot(x + .5 - 12, y + .5 - 12) < 9.2, W);
+  b.paint((x, y) => y < 15 && (x * 5 + y * 3) % 9 === 0 && Math.hypot(x + .5 - 12, y + .5 - 12) < 8.6, D);
+  b.rect(5, 8, 4, 4, '#ffffff'); b.rect(5, 9, 2, 2, K);
+  b.ell(4.5, 15, 1.6, 1.6, R); b.px(4, 15, '#7a1a10');
+  b.ell(20.5, 12, 1.6, 2.6, D);
+  b.outline(K);
+  return { swim, big: withFlip(b.canvas()), dead: flipV(swim[0][0]) };
+}
+function makeJelly() {
+  const fr = [];
+  for (let f = 0; f < 2; f++) {
+    const p = new Pix(16, 20);
+    const rx = f ? 5.4 : 7, ry = f ? 6 : 5;
+    p.ell(8, 7, rx, ry, '#ff8ad8', (x, y) => y <= 8);
+    p.rect(Math.round(8 - rx) + 1, 8, Math.round(rx * 2) - 2, 1, '#c84aa8');
+    p.paint((x, y) => y < 5 && x < 8 && !p.get(x - 1, y - 1), '#ffd0f4');
+    p.ell(6, 4.5, 1.2, 1, '#ffe8fa');
+    p.px(6, 6, K); p.px(10, 6, K);
+    for (let i = 0; i < 4; i++) {
+      const x0 = 8 - rx + 2.2 + i * (rx * 2 - 4.4) / 3;
+      for (let y = 9; y < 19 - (i % 2) * 2; y++) p.px(x0 + Math.round(Math.sin(y * 0.7 + f * 2 + i) * 1.1), y, i % 2 ? '#e070c0' : '#ffb0e8');
+    }
+    p.outline('#4a1450');
+    fr.push(p.canvas());
+  }
+  return { fr, dead: flipV(fr[0]) };
+}
+function makeFish(main, dark, light) {
+  const swim = [];
+  for (let f = 0; f < 2; f++) {
+    const p = new Pix(16, 12);
+    const ty = f ? 1 : 0;
+    for (let x = 11; x < 16; x++) { const h = (x - 10) * 0.9; for (let y = Math.round(6 - h - ty); y <= Math.round(5 + h - ty); y++) p.px(x, y, dark); }
+    p.ell(6.8, 6, 5.6, 3.8, main);
+    p.paint((x, y) => y >= 7 && x < 11, light);
+    p.px(6, 1, dark); p.px(7, 1, dark); p.px(8, 2, dark); p.px(5, 2, dark);
+    p.rect(3, 4, 2, 2, '#ffffff'); p.px(3, 5, K);
+    p.px(1, 7, dark);
+    p.px(8, 6 + f, dark); p.px(9, 6 + f, dark);
+    p.outline(K);
+    swim.push(withFlip(p.canvas()));
+  }
+  return { swim, dead: flipV(swim[0][0]) };
+}
 
 // ---------- tiles ----------
 const T = { EMPTY: 0, GROUND: 1, BRICK: 2, Q: 3, USED: 4, SOLID: 5, PTL: 6, PTR: 7, PL: 8, PR: 9, SEMI: 10, BRIDGE: 11, LAVA: 12, COIN: 13, HIDDEN: 14, CASTLE: 15, TRUNK: 16, CLOUD: 17, ICE: 18, QSAND: 19 };
@@ -540,6 +607,16 @@ const THEMES = {
     brick: ['#e8b060', '#9a5a20', '#ffe0a0'], solid: ['#d8a058', '#8a5420', '#f8d090'], semi: ['#2bb3a0', '#1a6d60', '#8af0d8'],
     music: 'desert'
   },
+  sea: {
+    grass: ['#f0d898', '#c8a868', '#fff4c8'], dirt: ['#d8b878', '#a88848', '#f0d8a0'],
+    brick: ['#e86a8a', '#8a2a4a', '#ffb0c0'], solid: ['#4a8aaa', '#1e4462', '#8ac8e0'], semi: ['#ff8a6a', '#b84a3a', '#ffc8a8'],
+    music: 'sea'
+  },
+  beach: {
+    grass: ['#f8e4a8', '#d8b870', '#fff8dc'], dirt: ['#ecc888', '#c09a58', '#f8e0a8'],
+    brick: ['#d8743a', '#7a3010', '#ffb070'], solid: ['#c8a070', '#7a5a30', '#f0d0a0'], semi: ['#5ec948', '#2a7a2a', '#b8f088'],
+    music: 'sea'
+  },
 };
 function tileArt(theme) {
   const th = THEMES[theme], out = {};
@@ -554,6 +631,7 @@ function tileArt(theme) {
   if (theme === 'castle') { gfill.rect(0, 0, 16, 1, dirt.d); gfill.rect(0, 8, 16, 1, dirt.d); gfill.rect(0, 0, 1, 8, dirt.d); gfill.rect(8, 8, 1, 8, dirt.d); gfill.rect(1, 1, 15, 1, dirt.l); gfill.rect(0, 9, 8, 1, dirt.l); gfill.rect(9, 9, 7, 1, dirt.l); }
   if (theme === 'cave') { for (let i = 0; i < 3; i++) { const x = (hash(i, 9) * 14) | 0, y = (hash(i, 4) * 14) | 0; gfill.px(x, y, '#8af0ff'); } }
   if (theme === 'desert') for (let x = 0; x < 16; x++) { gfill.px(x, 5 + ((x >> 2) % 2), dirt.d); gfill.px(x, 12 + (x % 7 === 3 ? 1 : 0), dirt.l); }
+  if (theme === 'sea' || theme === 'beach') for (let i = 0; i < 6; i++) { const x = (hash(i, 41) * 14) | 0, y = 3 + ((hash(i, 43) * 12) | 0); gfill.px(x, y, i % 3 ? dirt.d : '#ffffff'); if (i % 3 === 0) gfill.px(x + 1, y, '#f8c8d0'); }
   if (theme === 'ice') { for (let i = 0; i < 4; i++) { const x = (hash(i, 19) * 15) | 0, y = (hash(i, 23) * 15) | 0; gfill.px(x, y, '#c8ecff'); gfill.px(x + 1, y, '#a8c8f0'); } }
   out.gfill = gfill.canvas();
   const gtop = new Pix(16, 16);
@@ -566,6 +644,7 @@ function tileArt(theme) {
       if (hash(x, 2) < 0.25) gtop.px(x, 1, grass.l);
       if (theme === 'ice' && (x === 3 || x === 11)) { gtop.px(x, depth, grass.d); gtop.px(x, depth + 1, '#c8ecff'); if (x === 11) gtop.px(x, depth + 2, '#c8ecff'); }
       if (theme === 'desert' && hash(x, 5) < 0.2) gtop.px(x, 2, grass.d);
+      if ((theme === 'sea' || theme === 'beach') && (x + 2) % 8 < 3) gtop.px(x, 2, grass.d);
     }
   }
   out.gtop = gtop.canvas();
@@ -586,6 +665,18 @@ function tileArt(theme) {
   sp.rect(0, 15, 16, 1, so.d); sp.rect(15, 0, 1, 16, so.d); sp.rect(1, 14, 14, 1, so.d); sp.rect(14, 1, 1, 14, so.d);
   sp.rect(4, 4, 8, 8, so.b); sp.rect(4, 4, 8, 1, so.d); sp.rect(4, 4, 1, 8, so.d); sp.rect(4, 11, 8, 1, so.l); sp.rect(11, 4, 1, 8, so.l);
   out.solid = sp.canvas();
+  if (theme === 'sea') { // underwater: seamless mossy rock instead of bevelled blocks
+    const rk = new Pix(16, 16), seeds = [[3, 3], [11, 2], [7, 9], [14, 11], [2, 13]], shade = ['#4a7c9e', '#5a8cae', '#44749a', '#5486a8', '#4e80a2'];
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const ds = seeds.map(([sx, sy]) => { const dx = Math.min(Math.abs(x - sx), 16 - Math.abs(x - sx)), dy = Math.min(Math.abs(y - sy), 16 - Math.abs(y - sy)); return dx * dx + dy * dy; });
+      const order = ds.map((d, i) => [d, i]).sort((a, b) => a[0] - b[0]), [n1, i1] = order[0], n2 = order[1][0];
+      const edge = Math.sqrt(n2) - Math.sqrt(n1) < 1.1;
+      const sy = seeds[i1][1], up = ((y - sy + 24) % 16) - 8 < -1; // upper part of a stone catches the light
+      rk.px(x, y, edge ? '#2a5070' : up ? '#6a9ec0' : hash(x, y + 70) < 0.08 ? '#3a6a8c' : shade[i1]);
+    }
+    rk.px(12, 1, '#4ab868'); rk.px(13, 1, '#4ab868'); rk.px(3, 1, '#4ab868');
+    out.solid = rk.canvas();
+  }
   // question block frames
   const qcols = ['#ffd84a', '#ffe680', '#f8c020', '#ffd84a'];
   out.q = qcols.map((qc, f) => {
@@ -887,6 +978,81 @@ function makePyrWall() {
   p.px(3, 9, '#c8a050'); p.px(4, 9, '#c8a050'); p.px(3, 10, '#c8a050'); p.px(11, 1, '#c8a050'); p.px(12, 2, '#c8a050');
   return p.canvas();
 }
+// --- underwater & beach decor ---
+function makeCoral(seed, c) {
+  const r = rng(seed), p = new Pix(28, 32);
+  const br = (x, y, a, len, w, d) => {
+    for (let i = 0; i < len; i++) { x += Math.cos(a); y += Math.sin(a); p.ell(x, y, w, w, c[0]); }
+    if (d < 2 && len > 3) { br(x, y, a - 0.45 - r() * 0.35, len * 0.66, Math.max(0.9, w * 0.8), d + 1); br(x, y, a + 0.45 + r() * 0.35, len * 0.66, Math.max(0.9, w * 0.8), d + 1); }
+    else p.ell(x, y, w + 0.5, w + 0.5, c[2]);
+  };
+  br(14, 32, -Math.PI / 2 + (r() - 0.5) * 0.3, 11, 1.7, 0);
+  p.paint((x, y) => hash(x + seed, y) < 0.14 && p.get(x, y) === c32(c[0]), c[1]);
+  p.outline(c[1]);
+  return p.canvas();
+}
+function makeFanCoral() {
+  const p = new Pix(26, 24);
+  p.ell(13, 13, 12, 11, '#b85ae8', (x, y) => y <= 14);
+  for (let y = 0; y < 24; y++) for (let x = 0; x < 26; x++) if (p.get(x, y) && ((x + y) % 4 === 0 || (x - y + 40) % 4 === 0)) p.px(x, y, '#7a2ab0');
+  p.paint((x, y) => !p.get(x, y - 1), '#e0a8ff');
+  p.rect(12, 14, 2, 10, '#7a2ab0');
+  p.outline('#3a0a5a');
+  return p.canvas();
+}
+function makeAnemone() {
+  const p = new Pix(18, 14);
+  p.ell(9, 12, 6, 3, '#e4572e', (x, y) => y <= 13);
+  for (let i = 0; i < 7; i++) { const x0 = 3.5 + i * 1.8; for (let y = 3 + (i % 2); y < 11; y++) p.px(x0 + Math.round(Math.sin(y * 0.6 + i) * 0.8), y, y < 5 ? '#fff4e0' : '#ff7ab0'); }
+  p.outline('#7a1a3a');
+  return p.canvas();
+}
+function makeShell() {
+  const p = new Pix(10, 7);
+  p.ell(5, 6, 4.6, 5, '#ffd0d8', (x, y) => y < 7);
+  p.paint((x, y) => (x === 2 || x === 5 || x === 8) && y > 1, '#e890a8');
+  p.rect(4, 6, 3, 1, '#e890a8');
+  p.outline('#7a3a4a');
+  return p.canvas();
+}
+function makeStarfish() {
+  const p = new Pix(11, 10);
+  for (let i = 0; i < 5; i++) { const a = -Math.PI / 2 + i * Math.PI * 2 / 5; for (let r = 0; r < 4.6; r += 0.4) p.ell(5.5 + Math.cos(a) * r, 5.4 + Math.sin(a) * r, 1.3 - r * 0.15, 1.3 - r * 0.15, '#ff8a3a'); }
+  p.px(5, 5, '#ffd84a'); p.px(4, 3, '#ffd84a'); p.px(7, 6, '#ffd84a');
+  p.outline('#7a2a10');
+  return p.canvas();
+}
+function makeKelpLeaf(flip) {
+  const p = new Pix(7, 6);
+  p.ell(3.5, 3, 3.4, 2.2, '#3cb85a'); p.paint((x, y) => y < 2, '#7ae08a'); p.px(0, 4, '#2a8a4a');
+  p.outline('#14502a');
+  return flip ? flipH(p.canvas()) : p.canvas();
+}
+function makeArrowDown() {
+  const p = new Pix(12, 14);
+  p.rect(4, 0, 4, 7, '#ffd84a'); for (let y = 7; y < 13; y++) p.rect(y - 7, y, 12 - (y - 7) * 2, 1, '#ffd84a');
+  p.paint((x, y) => x < 6 && y < 9, '#fff4a0');
+  p.outline(K);
+  return p.canvas();
+}
+function makePalm() {
+  const p = new Pix(40, 60);
+  for (let y = 14; y < 60; y++) { const x = 18 + Math.round(Math.sin((60 - y) / 30) * 6); p.rect(x, y, 4, 1, y % 4 === 0 ? '#8a5a2a' : '#b07a40'); p.px(x, y, '#6a4020'); }
+  const fr = (a, len) => { for (let i = 0; i < len; i++) { const x = 25 + Math.cos(a) * i, y = 13 + Math.sin(a) * i + i * i * 0.05; p.ell(x, y, 1.6 + Math.sin(i / len * Math.PI) * 1.4, 1.2, i % 3 ? '#3cb84a' : '#2a8a3a'); } };
+  for (const [a, l] of [[-2.9, 18], [-2.3, 15], [-0.25, 16], [-0.85, 14], [-1.55, 10], [2.7, 13], [0.45, 13]]) fr(a, l);
+  p.ell(23, 15, 2.4, 2.2, '#6a4020'); p.ell(27, 16, 2.2, 2, '#7a5028');
+  p.outline(K);
+  return p.canvas();
+}
+function makeSeaRock() {
+  const p = new Pix(22, 12);
+  p.ell(10, 12, 9.5, 9, '#5a7a9a'); p.ell(17, 12, 4.5, 5, '#4a6a8a');
+  p.paint((x, y) => !p.get(x, y - 1), '#8ab0c8');
+  p.paint((x, y) => hash(x, y + 21) < 0.14, '#3a5a7a');
+  p.paint((x, y) => y < 6 && hash(x + 4, y) < 0.3 && x > 4 && x < 14, '#4ab868');
+  p.outline('#1a2a40');
+  return p.canvas();
+}
 
 // ---------- parallax layers ----------
 function bandGradient(stops, h = VH) {
@@ -1008,6 +1174,39 @@ function makeLayers(theme) {
       for (let y = top; y < VH; y++) du.px(x, y, y < top + 2 ? '#fde4a8' : shade ? '#d8a05a' : (hash(x >> 2, y >> 1) < 0.05 ? '#d8a868' : '#eebe7a'));
     }
     L.push({ img: du.canvas(), f: 0.4, y: 0 });
+  } else if (theme === 'sea') {
+    L.sky = bandGradient(['#5ad4f0', '#2a9ad8', '#1666b4', '#0c3a80']);
+    // far reef ridge with arches
+    const m = new Pix(W, VH);
+    for (let x = 0; x < W; x++) {
+      const t = x / W * Math.PI * 2, h = 62 + Math.sin(t * 2 + 1) * 20 + Math.sin(t * 6) * 8 + Math.sin(t * 13) * 3;
+      for (let y = Math.round(VH - 30 - h); y < VH; y++) m.px(x, y, hash(x >> 2, y >> 2) < 0.06 ? '#2a7ab8' : '#2068a8');
+    }
+    for (const cx of [90, 300, 440]) m.ell(cx, VH - 70, 16, 22, 0);
+    for (let i = 0; i < 30; i++) { const x = (hash(i, 61) * W) | 0, y = VH - 40 - ((hash(i, 62) * 50) | 0); if (m.get(x, y)) m.px(x, y, '#3a8ac8'); }
+    L.push({ img: m.canvas(), f: 0.15, y: 0 });
+    // near kelp forest silhouettes & boulders
+    const k = new Pix(W, VH);
+    for (let x = 0; x < W; x++) { const t = x / W * Math.PI * 2, h = 22 + Math.sin(t * 3 + 2) * 9 + Math.sin(t * 8) * 4; for (let y = Math.round(VH - 18 - h); y < VH; y++) k.px(x, y, '#155a94'); }
+    for (let i = 0; i < 18; i++) {
+      const x0 = (hash(i, 71) * W) | 0, ht = 50 + ((hash(i, 72) * 70) | 0), ph = hash(i, 73) * 6;
+      for (let y = 0; y < ht; y++) {
+        const x = x0 + Math.round(Math.sin(y / 14 + ph) * 3);
+        k.px(x, VH - 30 - y, '#18609a'); k.px(x + 1, VH - 30 - y, '#18609a');
+        if (y % 9 === 4) k.ell(x + (y % 18 < 9 ? 3 : -2), VH - 30 - y, 2.4, 1.3, '#18609a');
+      }
+    }
+    L.push({ img: k.canvas(), f: 0.35, y: 0 });
+  } else if (theme === 'beach') {
+    L.sky = bandGradient(['#4aa8f0', '#7cc8f8', '#d8f2ff']);
+    const s = new Pix(W, VH), hz = 150;
+    for (let x = 0; x < W; x++) for (let y = hz; y < VH; y++) s.px(x, y, (y - hz) % 7 === 3 && hash(x >> 3, y) < 0.5 ? '#6ac0f0' : y < hz + 2 ? '#8ad4f8' : '#2a8ad8');
+    for (let y = 0; y < 18; y++) for (let dx = -40; dx < 40; dx++) { if (y < 18 - Math.abs(dx) * 0.45) s.px(120 + dx, hz - y, y > 14 - Math.abs(dx) * 0.45 ? '#7ac888' : '#5aa868'); }
+    for (let i = 0; i < 40; i++) s.px((hash(i, 81) * W) | 0, hz + 4 + ((hash(i, 82) * 80) | 0), '#ffffff');
+    L.push({ img: s.canvas(), f: 0.1, y: 0 });
+    const cl = mkCanvas(W, 120), g = cl.getContext('2d');
+    for (let i = 0; i < 5; i++) { const w = 36 + ((hash(i, 15) * 40) | 0); g.drawImage(makeCloud(w, 22, ['#ffffff', '#dceeff', '#a8cce8']), (i * 101 + hash(i, 16) * 30) % (W - w), 14 + hash(i, 17) * 60); }
+    L.push({ img: cl, f: 0.2, y: 0, drift: 0.05 });
   } else {
     L.sky = bandGradient(['#0a0610', '#1a0c18', '#2a1018']);
     const w = new Pix(W, VH);

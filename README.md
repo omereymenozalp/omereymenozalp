@@ -43,8 +43,16 @@ Simgeler oyunun kendi piksel çizimlerinden üretilir: `node tools/build.mjs && 
 4. **1-4 Buz Geçidi:** kaygan buz zemin, oyuncu altından geçince düşen buz sarkıtları, karnının üstünde kayan penguenler ve gizli 1UP bloğu.
 5. **1-5 Kum Çölü:** batan kum çukurları ve üstüne basınca batan kum platformları, zıplayan akrepler, yuvarlanan çalı topları ve içinden hazine odalı bir tünel geçen piramit.
 6. **1-6 Ejder Kalesi:** lav, ateş çubukları, zıplayan lav topları ve köprüde Ejder Kral.
+7. **★ Mercan Denizi (gizli bölüm):** kale bitirilince açılır, başlık ekranında yıldızlı 7. kart olarak görünür. Bütünüyle su altında geçer: **A** her basışta yukarı bir kulaç attırır, bırakınca yavaşça batarsın; suda koşmak yoktur. Ateş topları suda dümdüz gider. Yakınına gelince şişen balon balıkları, üstündeyken sana doğru yükselen denizanaları ve sıra hâlinde yüzen balıklar var; suda düşmanların üstüne basılmaz, dokunmak can yakar (ateş topu ve yıldız işe yarar). Mercanlar, sallanan yosunlar, ışık huzmeleri ve kabarcıklar; kendine ait bir şarkı, kontrol noktası, gizli 1UP bloğu ve sıradan görünen bir borunun altında gizli bir hazine mağarası. Sondaki boru seni bayrak direğinin olduğu kumsala çıkarır; bitirince özel bir su altı jeneriği oynar.
 
 Güçlendirmeler: büyüme mantarı, ateş çiçeği, yıldız (dokunulmazlık) ve 1UP mantarı. Her bölümde bir kontrol noktası var. Açılan bölümler ve en yüksek skor tarayıcıda saklanır.
+
+## Oyun modları
+
+Başlık ekranındaki **NORMAL | ZAMANA KARŞI** anahtarına dokunarak (ya da ▼ veya B ile) mod değiştirilir.
+
+- **Normal:** klasik macera; 3 can, geri sayan süre, bölümden bölüme ilerleme.
+- **Zamana Karşı:** açılmış bölümlerden biri seçilip tek başına oynanır. Göstergede geri sayım yerine salise hassasiyetinde kronometre (ör. 01:23.45) çalışır. Can kaybı ve oyun sonu yoktur: ölünce bölüm hemen baştan başlar. Bayrağa (kalede baltaya) ulaşınca sonuç ekranı çıkar; önceki rekor geçildiyse **YENİ REKOR!** yazar. Her bölümün en iyi süresi tarayıcıda saklanır ve bu modda başlık kartlarında görünür. Bu moddaki skorlar en yüksek skora sayılmaz.
 
 ## Geliştirme
 
@@ -54,6 +62,8 @@ Kaynak `src/` altında parçalara ayrılmıştır ve sırayla birleştirilir:
 node tools/build.mjs        # src/* -> index.html (+ dist/super-biyik.html)
 node tools/test/mech.mjs    # mekanik testleri (mantar, boru, bayrak, boss…)
 node tools/test/bot.mjs     # otomatik oynayan bot, bölümleri baştan sona dener
+node tools/test/sea.mjs     # gizli deniz bölümü: yüzme fiziği, deniz canlıları, kilit, baştan sona yüzen bot
+node tools/test/timeattack.mjs  # zamana karşı: mod anahtarı, kronometre, anında yeniden başlama, rekor kaydı
 OUT=/tmp node tools/test/shot.mjs  # ekran görüntüleri
 ```
 

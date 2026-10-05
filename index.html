@@ -211,6 +211,7 @@ const FONT = {};
     '"': [0x0A, 0x0A, 0, 0, 0, 0, 0], '=': [0, 0, 0x1F, 0, 0x1F, 0, 0], '%': [0x19, 0x19, 0x02, 0x04, 0x08, 0x13, 0x13],
     '←': [0, 0x04, 0x08, 0x1F, 0x08, 0x04, 0], '→': [0, 0x04, 0x02, 0x1F, 0x02, 0x04, 0],
     '▶': [0x08, 0x0C, 0x0E, 0x0F, 0x0E, 0x0C, 0x08], '★': [0x04, 0x04, 0x1F, 0x0E, 0x0E, 0x1B, 0x11],
+    '∞': [0, 0, 0x0A, 0x15, 0x15, 0x0A, 0], '▼': [0, 0x1F, 0x1F, 0x0E, 0x0E, 0x04, 0],
   };
   for (const k in F) FONT[k] = g(F[k]);
   FONT['Ç'] = g(F.C, 0, 0x04); FONT['Ş'] = g(F.S, 0, 0x04);
@@ -356,6 +357,9 @@ const SFX = {
   checkpoint: (S, t) => { ['G5', 'B5', 'D6', 'G6'].forEach((x, i) => S.tone(nf(x), t + i * 0.07, 0.1, { duty: 0.125, vol: 0.12 })); },
   spring: (S, t) => S.tone(200, t, 0.25, { duty: 0.25, slide: 900, vol: 0.14, vib: true }),
   crack: (S, t) => { S.noiseHit(t, 0.06, { freq: 5000, vol: 0.07 }); S.tone(2600, t, 0.04, { duty: 0.125, vol: 0.05 }); },
+  swim: (S, t) => { S.tone(240, t, 0.13, { wave: 'sine', slide: 560, slideT: 0.11, vol: 0.16 }); S.noiseHit(t, 0.07, { freq: 1300, type: 'bandpass', vol: 0.05 }); },
+  puff: (S, t) => { S.tone(160, t, 0.22, { duty: 0.5, slide: 520, slideT: 0.2, vol: 0.12 }); S.noiseHit(t, 0.12, { freq: 700, type: 'lowpass', vol: 0.08 }); },
+  record: (S, t) => { ['C6', 'E6', 'G6', 'E6', 'G6', 'C7'].forEach((x, i) => S.tone(nf(x), t + i * 0.07, i === 5 ? 0.3 : 0.08, { duty: 0.25, vol: 0.12 })); },
   shatter: (S, t) => { S.noiseHit(t, 0.18, { freq: 4000, sweep: 9000, type: 'bandpass', vol: 0.18 }); [2093, 2637, 3136].forEach((f, i) => S.tone(f, t + i * 0.03, 0.06, { duty: 0.125, vol: 0.06 })); },
 };
 
@@ -439,6 +443,19 @@ const SONGS = {
              A2:3 A2:1 r:2 A3:2 A2:2 r:2 E3:2 A2:2 | D2:3 D2:1 r:2 D3:2 E2:2 r:2 B2:2 E2:2 | A2:3 A2:1 r:2 A3:2 D2:2 r:2 A2:2 D2:2 | E2:3 E2:1 r:2 E3:2 E2:4 B1:2 E2:2`,
       drum: `k:3 h:1 s:2 h:2 k:2 k:2 s:2 h:1 h:1 | k:3 h:1 s:2 h:2 k:2 k:2 s:2 h:1 h:1 | k:3 h:1 s:2 h:2 k:2 k:2 s:2 h:1 h:1 | k:3 h:1 s:2 h:2 k:2 k:2 s:2 h:1 h:1 |
              k:3 h:1 s:2 h:2 k:2 k:2 s:2 h:1 h:1 | k:3 h:1 s:2 h:2 k:2 k:2 s:2 h:1 h:1 | k:3 h:1 s:2 h:2 k:2 k:2 s:2 h:1 h:1 | k:2 s:1 s:1 k:2 s:2 k:2 s:1 s:1 s:2 s:2`
+    }
+  },
+  // MERCAN DENİZİ: a slow, swaying D-minor waltz-like tune for the secret underwater level
+  sea: {
+    bpm: 104, loop: true, tracks: {
+      lead: `A4:2 D5:2 F5:2 A5:4 G5:2 F5:2 E5:2 | F5:3 E5:1 D5:4 r:4 A4:4 | Bb4:2 D5:2 F5:2 Bb5:4 A5:2 G5:2 F5:2 | A5:6 G5:2 E5:8 |
+             G5:2 A5:2 Bb5:2 A5:2 G5:2 F5:2 E5:2 D5:2 | F5:4 E5:2 C5:2 D5:8 | Bb4:2 C5:2 D5:2 F5:2 E5:2 D5:2 C#5:2 E5:2 | D5:12 r:4`,
+      harm: `D4:2 F4:2 A4:2 D5:2 A4:2 F4:2 D4:2 F4:2 | C4:2 E4:2 A4:2 C5:2 A4:2 E4:2 C4:2 E4:2 | Bb3:2 D4:2 F4:2 Bb4:2 F4:2 D4:2 Bb3:2 D4:2 | A3:2 C#4:2 E4:2 A4:2 E4:2 C#4:2 A3:2 C#4:2 |
+             G3:2 Bb3:2 D4:2 G4:2 D4:2 Bb3:2 G3:2 Bb3:2 | F3:2 A3:2 D4:2 F4:2 D4:2 A3:2 F3:2 A3:2 | Bb3:2 D4:2 F4:2 D4:2 A3:2 C#4:2 E4:2 C#4:2 | D4:2 F4:2 A4:2 D5:2 A4:8`,
+      bass: `D2:4 A2:4 D3:4 A2:4 | A1:4 E2:4 A2:4 E2:4 | Bb1:4 F2:4 Bb2:4 F2:4 | A1:4 E2:4 A2:4 C#3:4 |
+             G1:4 D2:4 G2:4 D2:4 | D2:4 A2:4 D3:4 A2:4 | Bb1:4 F2:4 A1:4 E2:4 | D2:8 A1:4 D2:4`,
+      drum: `k:4 h:2 h:2 h:4 h:4 | k:4 h:2 h:2 h:4 h:4 | k:4 h:2 h:2 h:4 h:4 | k:4 h:2 h:2 s:4 h:4 |
+             k:4 h:2 h:2 h:4 h:4 | k:4 h:2 h:2 h:4 h:4 | k:4 h:2 h:2 h:4 h:4 | k:4 h:2 h:2 s:4 s:2 h:2`
     }
   },
   star: {
@@ -1024,6 +1041,73 @@ function makeSandSlab() {
   for (let x = 1; x < 31; x++) for (let y = 3; y < 8; y++) if (hash(x + 9, y + 31) < 0.1) p.px(x, y, '#f0c070');
   return p.canvas();
 }
+// --- sea creatures (drawn facing left) ---
+function makePuffer() {
+  const Y = '#ffc83a', D = '#d8901a', W = '#fff4e0', R = '#e4572e';
+  const swim = [];
+  for (let f = 0; f < 2; f++) {
+    const p = new Pix(16, 16);
+    p.ell(14.2, 8, 1.8, 3 - f, D);
+    p.ell(7.6, 8.5, 6, 5.4, Y);
+    p.paint((x, y) => y >= 11, W);
+    p.paint((x, y) => y < 11 && (x * 5 + y * 3) % 9 === 0, D);
+    p.px(8, 2, D); p.px(9, 2, D); p.px(10, 3, D);
+    p.rect(3, 6, 3, 3, '#ffffff'); p.px(3, 7, K); p.px(3, 8, K);
+    p.px(1, 10, R); p.px(2, 10, R);
+    p.ell(9, 10.5 + f * 0.6, 1.8, 1.1, D);
+    p.outline(K);
+    swim.push(withFlip(p.canvas()));
+  }
+  const b = new Pix(24, 24);
+  for (let i = 0; i < 14; i++) {
+    const a = i / 14 * Math.PI * 2;
+    for (let r = 8.5; r < 11.6; r += 0.5) b.px(12 + Math.cos(a) * r, 12 + Math.sin(a) * r, r > 10.4 ? W : '#e8d8b0');
+  }
+  b.ell(12, 12, 9, 9, Y);
+  b.paint((x, y) => y >= 15 && Math.hypot(x + .5 - 12, y + .5 - 12) < 9.2, W);
+  b.paint((x, y) => y < 15 && (x * 5 + y * 3) % 9 === 0 && Math.hypot(x + .5 - 12, y + .5 - 12) < 8.6, D);
+  b.rect(5, 8, 4, 4, '#ffffff'); b.rect(5, 9, 2, 2, K);
+  b.ell(4.5, 15, 1.6, 1.6, R); b.px(4, 15, '#7a1a10');
+  b.ell(20.5, 12, 1.6, 2.6, D);
+  b.outline(K);
+  return { swim, big: withFlip(b.canvas()), dead: flipV(swim[0][0]) };
+}
+function makeJelly() {
+  const fr = [];
+  for (let f = 0; f < 2; f++) {
+    const p = new Pix(16, 20);
+    const rx = f ? 5.4 : 7, ry = f ? 6 : 5;
+    p.ell(8, 7, rx, ry, '#ff8ad8', (x, y) => y <= 8);
+    p.rect(Math.round(8 - rx) + 1, 8, Math.round(rx * 2) - 2, 1, '#c84aa8');
+    p.paint((x, y) => y < 5 && x < 8 && !p.get(x - 1, y - 1), '#ffd0f4');
+    p.ell(6, 4.5, 1.2, 1, '#ffe8fa');
+    p.px(6, 6, K); p.px(10, 6, K);
+    for (let i = 0; i < 4; i++) {
+      const x0 = 8 - rx + 2.2 + i * (rx * 2 - 4.4) / 3;
+      for (let y = 9; y < 19 - (i % 2) * 2; y++) p.px(x0 + Math.round(Math.sin(y * 0.7 + f * 2 + i) * 1.1), y, i % 2 ? '#e070c0' : '#ffb0e8');
+    }
+    p.outline('#4a1450');
+    fr.push(p.canvas());
+  }
+  return { fr, dead: flipV(fr[0]) };
+}
+function makeFish(main, dark, light) {
+  const swim = [];
+  for (let f = 0; f < 2; f++) {
+    const p = new Pix(16, 12);
+    const ty = f ? 1 : 0;
+    for (let x = 11; x < 16; x++) { const h = (x - 10) * 0.9; for (let y = Math.round(6 - h - ty); y <= Math.round(5 + h - ty); y++) p.px(x, y, dark); }
+    p.ell(6.8, 6, 5.6, 3.8, main);
+    p.paint((x, y) => y >= 7 && x < 11, light);
+    p.px(6, 1, dark); p.px(7, 1, dark); p.px(8, 2, dark); p.px(5, 2, dark);
+    p.rect(3, 4, 2, 2, '#ffffff'); p.px(3, 5, K);
+    p.px(1, 7, dark);
+    p.px(8, 6 + f, dark); p.px(9, 6 + f, dark);
+    p.outline(K);
+    swim.push(withFlip(p.canvas()));
+  }
+  return { swim, dead: flipV(swim[0][0]) };
+}
 
 // ---------- tiles ----------
 const T = { EMPTY: 0, GROUND: 1, BRICK: 2, Q: 3, USED: 4, SOLID: 5, PTL: 6, PTR: 7, PL: 8, PR: 9, SEMI: 10, BRIDGE: 11, LAVA: 12, COIN: 13, HIDDEN: 14, CASTLE: 15, TRUNK: 16, CLOUD: 17, ICE: 18, QSAND: 19 };
@@ -1061,6 +1145,16 @@ const THEMES = {
     brick: ['#e8b060', '#9a5a20', '#ffe0a0'], solid: ['#d8a058', '#8a5420', '#f8d090'], semi: ['#2bb3a0', '#1a6d60', '#8af0d8'],
     music: 'desert'
   },
+  sea: {
+    grass: ['#f0d898', '#c8a868', '#fff4c8'], dirt: ['#d8b878', '#a88848', '#f0d8a0'],
+    brick: ['#e86a8a', '#8a2a4a', '#ffb0c0'], solid: ['#4a8aaa', '#1e4462', '#8ac8e0'], semi: ['#ff8a6a', '#b84a3a', '#ffc8a8'],
+    music: 'sea'
+  },
+  beach: {
+    grass: ['#f8e4a8', '#d8b870', '#fff8dc'], dirt: ['#ecc888', '#c09a58', '#f8e0a8'],
+    brick: ['#d8743a', '#7a3010', '#ffb070'], solid: ['#c8a070', '#7a5a30', '#f0d0a0'], semi: ['#5ec948', '#2a7a2a', '#b8f088'],
+    music: 'sea'
+  },
 };
 function tileArt(theme) {
   const th = THEMES[theme], out = {};
@@ -1075,6 +1169,7 @@ function tileArt(theme) {
   if (theme === 'castle') { gfill.rect(0, 0, 16, 1, dirt.d); gfill.rect(0, 8, 16, 1, dirt.d); gfill.rect(0, 0, 1, 8, dirt.d); gfill.rect(8, 8, 1, 8, dirt.d); gfill.rect(1, 1, 15, 1, dirt.l); gfill.rect(0, 9, 8, 1, dirt.l); gfill.rect(9, 9, 7, 1, dirt.l); }
   if (theme === 'cave') { for (let i = 0; i < 3; i++) { const x = (hash(i, 9) * 14) | 0, y = (hash(i, 4) * 14) | 0; gfill.px(x, y, '#8af0ff'); } }
   if (theme === 'desert') for (let x = 0; x < 16; x++) { gfill.px(x, 5 + ((x >> 2) % 2), dirt.d); gfill.px(x, 12 + (x % 7 === 3 ? 1 : 0), dirt.l); }
+  if (theme === 'sea' || theme === 'beach') for (let i = 0; i < 6; i++) { const x = (hash(i, 41) * 14) | 0, y = 3 + ((hash(i, 43) * 12) | 0); gfill.px(x, y, i % 3 ? dirt.d : '#ffffff'); if (i % 3 === 0) gfill.px(x + 1, y, '#f8c8d0'); }
   if (theme === 'ice') { for (let i = 0; i < 4; i++) { const x = (hash(i, 19) * 15) | 0, y = (hash(i, 23) * 15) | 0; gfill.px(x, y, '#c8ecff'); gfill.px(x + 1, y, '#a8c8f0'); } }
   out.gfill = gfill.canvas();
   const gtop = new Pix(16, 16);
@@ -1087,6 +1182,7 @@ function tileArt(theme) {
       if (hash(x, 2) < 0.25) gtop.px(x, 1, grass.l);
       if (theme === 'ice' && (x === 3 || x === 11)) { gtop.px(x, depth, grass.d); gtop.px(x, depth + 1, '#c8ecff'); if (x === 11) gtop.px(x, depth + 2, '#c8ecff'); }
       if (theme === 'desert' && hash(x, 5) < 0.2) gtop.px(x, 2, grass.d);
+      if ((theme === 'sea' || theme === 'beach') && (x + 2) % 8 < 3) gtop.px(x, 2, grass.d);
     }
   }
   out.gtop = gtop.canvas();
@@ -1107,6 +1203,18 @@ function tileArt(theme) {
   sp.rect(0, 15, 16, 1, so.d); sp.rect(15, 0, 1, 16, so.d); sp.rect(1, 14, 14, 1, so.d); sp.rect(14, 1, 1, 14, so.d);
   sp.rect(4, 4, 8, 8, so.b); sp.rect(4, 4, 8, 1, so.d); sp.rect(4, 4, 1, 8, so.d); sp.rect(4, 11, 8, 1, so.l); sp.rect(11, 4, 1, 8, so.l);
   out.solid = sp.canvas();
+  if (theme === 'sea') { // underwater: seamless mossy rock instead of bevelled blocks
+    const rk = new Pix(16, 16), seeds = [[3, 3], [11, 2], [7, 9], [14, 11], [2, 13]], shade = ['#4a7c9e', '#5a8cae', '#44749a', '#5486a8', '#4e80a2'];
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const ds = seeds.map(([sx, sy]) => { const dx = Math.min(Math.abs(x - sx), 16 - Math.abs(x - sx)), dy = Math.min(Math.abs(y - sy), 16 - Math.abs(y - sy)); return dx * dx + dy * dy; });
+      const order = ds.map((d, i) => [d, i]).sort((a, b) => a[0] - b[0]), [n1, i1] = order[0], n2 = order[1][0];
+      const edge = Math.sqrt(n2) - Math.sqrt(n1) < 1.1;
+      const sy = seeds[i1][1], up = ((y - sy + 24) % 16) - 8 < -1; // upper part of a stone catches the light
+      rk.px(x, y, edge ? '#2a5070' : up ? '#6a9ec0' : hash(x, y + 70) < 0.08 ? '#3a6a8c' : shade[i1]);
+    }
+    rk.px(12, 1, '#4ab868'); rk.px(13, 1, '#4ab868'); rk.px(3, 1, '#4ab868');
+    out.solid = rk.canvas();
+  }
   // question block frames
   const qcols = ['#ffd84a', '#ffe680', '#f8c020', '#ffd84a'];
   out.q = qcols.map((qc, f) => {
@@ -1408,6 +1516,81 @@ function makePyrWall() {
   p.px(3, 9, '#c8a050'); p.px(4, 9, '#c8a050'); p.px(3, 10, '#c8a050'); p.px(11, 1, '#c8a050'); p.px(12, 2, '#c8a050');
   return p.canvas();
 }
+// --- underwater & beach decor ---
+function makeCoral(seed, c) {
+  const r = rng(seed), p = new Pix(28, 32);
+  const br = (x, y, a, len, w, d) => {
+    for (let i = 0; i < len; i++) { x += Math.cos(a); y += Math.sin(a); p.ell(x, y, w, w, c[0]); }
+    if (d < 2 && len > 3) { br(x, y, a - 0.45 - r() * 0.35, len * 0.66, Math.max(0.9, w * 0.8), d + 1); br(x, y, a + 0.45 + r() * 0.35, len * 0.66, Math.max(0.9, w * 0.8), d + 1); }
+    else p.ell(x, y, w + 0.5, w + 0.5, c[2]);
+  };
+  br(14, 32, -Math.PI / 2 + (r() - 0.5) * 0.3, 11, 1.7, 0);
+  p.paint((x, y) => hash(x + seed, y) < 0.14 && p.get(x, y) === c32(c[0]), c[1]);
+  p.outline(c[1]);
+  return p.canvas();
+}
+function makeFanCoral() {
+  const p = new Pix(26, 24);
+  p.ell(13, 13, 12, 11, '#b85ae8', (x, y) => y <= 14);
+  for (let y = 0; y < 24; y++) for (let x = 0; x < 26; x++) if (p.get(x, y) && ((x + y) % 4 === 0 || (x - y + 40) % 4 === 0)) p.px(x, y, '#7a2ab0');
+  p.paint((x, y) => !p.get(x, y - 1), '#e0a8ff');
+  p.rect(12, 14, 2, 10, '#7a2ab0');
+  p.outline('#3a0a5a');
+  return p.canvas();
+}
+function makeAnemone() {
+  const p = new Pix(18, 14);
+  p.ell(9, 12, 6, 3, '#e4572e', (x, y) => y <= 13);
+  for (let i = 0; i < 7; i++) { const x0 = 3.5 + i * 1.8; for (let y = 3 + (i % 2); y < 11; y++) p.px(x0 + Math.round(Math.sin(y * 0.6 + i) * 0.8), y, y < 5 ? '#fff4e0' : '#ff7ab0'); }
+  p.outline('#7a1a3a');
+  return p.canvas();
+}
+function makeShell() {
+  const p = new Pix(10, 7);
+  p.ell(5, 6, 4.6, 5, '#ffd0d8', (x, y) => y < 7);
+  p.paint((x, y) => (x === 2 || x === 5 || x === 8) && y > 1, '#e890a8');
+  p.rect(4, 6, 3, 1, '#e890a8');
+  p.outline('#7a3a4a');
+  return p.canvas();
+}
+function makeStarfish() {
+  const p = new Pix(11, 10);
+  for (let i = 0; i < 5; i++) { const a = -Math.PI / 2 + i * Math.PI * 2 / 5; for (let r = 0; r < 4.6; r += 0.4) p.ell(5.5 + Math.cos(a) * r, 5.4 + Math.sin(a) * r, 1.3 - r * 0.15, 1.3 - r * 0.15, '#ff8a3a'); }
+  p.px(5, 5, '#ffd84a'); p.px(4, 3, '#ffd84a'); p.px(7, 6, '#ffd84a');
+  p.outline('#7a2a10');
+  return p.canvas();
+}
+function makeKelpLeaf(flip) {
+  const p = new Pix(7, 6);
+  p.ell(3.5, 3, 3.4, 2.2, '#3cb85a'); p.paint((x, y) => y < 2, '#7ae08a'); p.px(0, 4, '#2a8a4a');
+  p.outline('#14502a');
+  return flip ? flipH(p.canvas()) : p.canvas();
+}
+function makeArrowDown() {
+  const p = new Pix(12, 14);
+  p.rect(4, 0, 4, 7, '#ffd84a'); for (let y = 7; y < 13; y++) p.rect(y - 7, y, 12 - (y - 7) * 2, 1, '#ffd84a');
+  p.paint((x, y) => x < 6 && y < 9, '#fff4a0');
+  p.outline(K);
+  return p.canvas();
+}
+function makePalm() {
+  const p = new Pix(40, 60);
+  for (let y = 14; y < 60; y++) { const x = 18 + Math.round(Math.sin((60 - y) / 30) * 6); p.rect(x, y, 4, 1, y % 4 === 0 ? '#8a5a2a' : '#b07a40'); p.px(x, y, '#6a4020'); }
+  const fr = (a, len) => { for (let i = 0; i < len; i++) { const x = 25 + Math.cos(a) * i, y = 13 + Math.sin(a) * i + i * i * 0.05; p.ell(x, y, 1.6 + Math.sin(i / len * Math.PI) * 1.4, 1.2, i % 3 ? '#3cb84a' : '#2a8a3a'); } };
+  for (const [a, l] of [[-2.9, 18], [-2.3, 15], [-0.25, 16], [-0.85, 14], [-1.55, 10], [2.7, 13], [0.45, 13]]) fr(a, l);
+  p.ell(23, 15, 2.4, 2.2, '#6a4020'); p.ell(27, 16, 2.2, 2, '#7a5028');
+  p.outline(K);
+  return p.canvas();
+}
+function makeSeaRock() {
+  const p = new Pix(22, 12);
+  p.ell(10, 12, 9.5, 9, '#5a7a9a'); p.ell(17, 12, 4.5, 5, '#4a6a8a');
+  p.paint((x, y) => !p.get(x, y - 1), '#8ab0c8');
+  p.paint((x, y) => hash(x, y + 21) < 0.14, '#3a5a7a');
+  p.paint((x, y) => y < 6 && hash(x + 4, y) < 0.3 && x > 4 && x < 14, '#4ab868');
+  p.outline('#1a2a40');
+  return p.canvas();
+}
 
 // ---------- parallax layers ----------
 function bandGradient(stops, h = VH) {
@@ -1529,6 +1712,39 @@ function makeLayers(theme) {
       for (let y = top; y < VH; y++) du.px(x, y, y < top + 2 ? '#fde4a8' : shade ? '#d8a05a' : (hash(x >> 2, y >> 1) < 0.05 ? '#d8a868' : '#eebe7a'));
     }
     L.push({ img: du.canvas(), f: 0.4, y: 0 });
+  } else if (theme === 'sea') {
+    L.sky = bandGradient(['#5ad4f0', '#2a9ad8', '#1666b4', '#0c3a80']);
+    // far reef ridge with arches
+    const m = new Pix(W, VH);
+    for (let x = 0; x < W; x++) {
+      const t = x / W * Math.PI * 2, h = 62 + Math.sin(t * 2 + 1) * 20 + Math.sin(t * 6) * 8 + Math.sin(t * 13) * 3;
+      for (let y = Math.round(VH - 30 - h); y < VH; y++) m.px(x, y, hash(x >> 2, y >> 2) < 0.06 ? '#2a7ab8' : '#2068a8');
+    }
+    for (const cx of [90, 300, 440]) m.ell(cx, VH - 70, 16, 22, 0);
+    for (let i = 0; i < 30; i++) { const x = (hash(i, 61) * W) | 0, y = VH - 40 - ((hash(i, 62) * 50) | 0); if (m.get(x, y)) m.px(x, y, '#3a8ac8'); }
+    L.push({ img: m.canvas(), f: 0.15, y: 0 });
+    // near kelp forest silhouettes & boulders
+    const k = new Pix(W, VH);
+    for (let x = 0; x < W; x++) { const t = x / W * Math.PI * 2, h = 22 + Math.sin(t * 3 + 2) * 9 + Math.sin(t * 8) * 4; for (let y = Math.round(VH - 18 - h); y < VH; y++) k.px(x, y, '#155a94'); }
+    for (let i = 0; i < 18; i++) {
+      const x0 = (hash(i, 71) * W) | 0, ht = 50 + ((hash(i, 72) * 70) | 0), ph = hash(i, 73) * 6;
+      for (let y = 0; y < ht; y++) {
+        const x = x0 + Math.round(Math.sin(y / 14 + ph) * 3);
+        k.px(x, VH - 30 - y, '#18609a'); k.px(x + 1, VH - 30 - y, '#18609a');
+        if (y % 9 === 4) k.ell(x + (y % 18 < 9 ? 3 : -2), VH - 30 - y, 2.4, 1.3, '#18609a');
+      }
+    }
+    L.push({ img: k.canvas(), f: 0.35, y: 0 });
+  } else if (theme === 'beach') {
+    L.sky = bandGradient(['#4aa8f0', '#7cc8f8', '#d8f2ff']);
+    const s = new Pix(W, VH), hz = 150;
+    for (let x = 0; x < W; x++) for (let y = hz; y < VH; y++) s.px(x, y, (y - hz) % 7 === 3 && hash(x >> 3, y) < 0.5 ? '#6ac0f0' : y < hz + 2 ? '#8ad4f8' : '#2a8ad8');
+    for (let y = 0; y < 18; y++) for (let dx = -40; dx < 40; dx++) { if (y < 18 - Math.abs(dx) * 0.45) s.px(120 + dx, hz - y, y > 14 - Math.abs(dx) * 0.45 ? '#7ac888' : '#5aa868'); }
+    for (let i = 0; i < 40; i++) s.px((hash(i, 81) * W) | 0, hz + 4 + ((hash(i, 82) * 80) | 0), '#ffffff');
+    L.push({ img: s.canvas(), f: 0.1, y: 0 });
+    const cl = mkCanvas(W, 120), g = cl.getContext('2d');
+    for (let i = 0; i < 5; i++) { const w = 36 + ((hash(i, 15) * 40) | 0); g.drawImage(makeCloud(w, 22, ['#ffffff', '#dceeff', '#a8cce8']), (i * 101 + hash(i, 16) * 30) % (W - w), 14 + hash(i, 17) * 60); }
+    L.push({ img: cl, f: 0.2, y: 0, drift: 0.05 });
   } else {
     L.sky = bandGradient(['#0a0610', '#1a0c18', '#2a1018']);
     const w = new Pix(W, VH);
@@ -1663,6 +1879,26 @@ function autoDecor(A, seed) {
         }
       }
       x += 3 + ((r() * 6) | 0);
+    }
+  }
+  if (th === 'sea' || th === 'beach') {
+    let x = 2;
+    while (x < A.w - 3) {
+      const gy = groundTopAt(x);
+      if (gy > 0 && groundTopAt(x + 1) === gy && groundTopAt(x + 2) === gy) {
+        const k = r(), X = x * 16, Y = gy * 16 + 1;
+        if (th === 'beach') {
+          if (k < 0.3) { A.decor.push({ k: 'palm', x: X - 12, y: Y }); x += 3; }
+          else if (k < 0.55) A.decor.push({ k: 'shell', x: X + 3, y: Y });
+          else if (k < 0.75) A.decor.push({ k: 'starfish', x: X + 2, y: Y });
+        } else if (k < 0.24) { A.decor.push({ k: 'kelp', x: X + 6, y: Y - 1, n: 5 + ((r() * 9) | 0), ph: r() * 6 }); if (r() < 0.6) A.decor.push({ k: 'kelp', x: X + 15, y: Y - 1, n: 3 + ((r() * 6) | 0), ph: r() * 6 }); }
+        else if (k < 0.46) { A.decor.push({ k: 'coral' + ((r() * 3) | 0), x: X - 4, y: Y }); x += 1; }
+        else if (k < 0.56) { A.decor.push({ k: 'fan', x: X - 2, y: Y }); x += 1; }
+        else if (k < 0.68) A.decor.push({ k: 'anemone', x: X, y: Y });
+        else if (k < 0.78) A.decor.push({ k: 'rock', x: X - 2, y: Y });
+        else if (k < 0.88) A.decor.push({ k: r() < 0.5 ? 'shell' : 'starfish', x: X + 4, y: Y });
+      }
+      x += 2 + ((r() * 4) | 0);
     }
   }
   if (th === 'castle') {
@@ -1917,7 +2153,78 @@ const LEVELS = [
       return { areas: [A], start: { area: 0, x: 2, y: 7 }, checkpoint: 90 };
     }
   },
+  {
+    // secret level: unlocked by beating the castle (the ending). The whole first area is underwater (A.water).
+    id: '★', name: 'MERCAN DENİZİ', time: 300, secret: true, make() {
+      const A = newArea('sea', 184), b = builder(A);
+      A.water = true;
+      b.ground(0, 45).ground(51, 119).ground(126, 183);
+      A.decor.push({ k: 'sign', x: 6 * 16, y: 13 * 16 });
+      // warm-up: learn to swim up to the blocks
+      b.row(11, 9, '?M?');
+      b.coins(16, 6, 4);
+      b.fill(21, 10, 22, 12, T.SOLID).coins(21, 8, 2);
+      b.e('fish', 28, 6).e('fish', 30, 6).e('fish', 32, 6);
+      b.e('puffer', 32, 10);
+      // rock arch: hanging rocks above, boulders below -> swim through the middle
+      b.fill(36, 0, 41, 4, T.SOLID).fill(37, 11, 40, 12, T.SOLID);
+      b.coins(37, 7, 4);
+      b.e('jelly', 43, 11);
+      // first trench (don't sink!)
+      b.coins(46, 8, 5);
+      b.e('fish', 52, 9);
+      b.row(54, 8, 'BBPBB');
+      b.e('puffer', 58, 11);
+      // secret: this ordinary-looking pipe drops into a sunken treasure grotto
+      b.pipe(62, 2, { warp: { area: 2, tx: 3, ty: 3, mode: 'drop' } });
+      b.e('fish', 67, 4).e('fish', 69, 4).e('fish', 71, 4);
+      b.e('puffer', 68, 8);
+      // rock maze with a hidden 1UP where you have to swim up
+      b.fill(73, 0, 74, 7, T.SOLID).fill(79, 7, 80, 12, T.SOLID).fill(85, 0, 86, 7, T.SOLID);
+      b.row(76, 7, 'H');
+      b.coins(79, 4, 2).coins(81, 11, 3);
+      b.e('jelly', 83, 11);
+      // checkpoint (92), star, fish from every direction
+      b.row(96, 8, '?S?');
+      b.e('fish', 101, 10).e('fish', 104, 5).e('fish', 107, 8).e('fish', 110, 3);
+      b.e('puffer', 104, 11);
+      b.pipe(112, 2);
+      b.e('jelly', 116, 11);
+      // second trench: jellyfish rise from the deep
+      b.coins(120, 6, 6);
+      b.e('jelly', 121, 12).e('jelly', 124, 12);
+      // pillars
+      b.fill(130, 9, 131, 12, T.SOLID).fill(136, 0, 137, 5, T.SOLID).fill(142, 8, 143, 12, T.SOLID);
+      b.coins(130, 7, 2).coins(142, 6, 2);
+      b.e('puffer', 134, 9).e('puffer', 140, 5);
+      b.row(147, 8, '?M?');
+      b.e('fish', 152, 4).e('fish', 154, 4).e('fish', 156, 4).e('fish', 153, 10).e('fish', 155, 10);
+      b.e('jelly', 158, 12).e('jelly', 162, 12).e('jelly', 166, 12);
+      // exit pipe up to the beach
+      b.coins(168, 9, 3);
+      b.pipe(172, 2, { warp: { area: 1, tx: 2, ty: 11, mode: 'up' } });
+      A.decor.push({ k: 'arrow', x: 172 * 16 + 10, y: 10 * 16 - 2 });
+      b.fill(176, 0, 183, 12, T.SOLID);
+      autoDecor(A, 77);
+      // the beach with the flagpole
+      const B = newArea('beach', 30), bb = builder(B);
+      bb.ground(0, 29).pipe(2, 2).coins(7, 9, 3);
+      bb.flag(17); bb.castle(21);
+      autoDecor(B, 9);
+      // sunken treasure grotto (secret)
+      const R = newArea('sea', 28), rb = builder(R);
+      R.water = true;
+      rb.ground(0, 27).fill(0, 0, 27, 1, T.SOLID).fill(0, 2, 0, 12, T.SOLID).fill(27, 2, 27, 12, T.SOLID);
+      rb.coins(4, 11, 15).coins(5, 8, 13).coins(7, 5, 9);
+      rb.row(12, 3, 'U');
+      rb.pipe(23, 2, { warp: { area: 0, tx: 112, ty: 11, mode: 'up' } });
+      autoDecor(R, 13);
+      return { areas: [A, B, R], start: { area: 0, x: 3, y: 12 }, checkpoint: 92 };
+    }
+  },
 ];
+// the first six levels form the main adventure; anything after is post-game content
+const MAIN_LEVELS = LEVELS.filter(L => !L.secret).length;
 
 // =====================================================================
 //  ASSET INIT
@@ -1941,8 +2248,9 @@ function initArt() {
     spring: makeSpring(), castle: makeCastle(), pole: makeFlagPole(), flag: makeFlag(), torch: makeTorch(),
     hill: makeHill(80, 36),
     penguin: makePenguin(), scorpion: makeScorpion(), tumble: makeTumbleweed(), icicle: makeIcicle(), sandslab: makeSandSlab(),
+    puffer: makePuffer(), jelly: makeJelly(), fish: [makeFish('#ff6a4a', '#b8301a', '#ffc8a0'), makeFish('#4ab8f0', '#1a6aa8', '#c8f0ff')],
   };
-  for (const th of ['over', 'cave', 'sky', 'castle', 'ice', 'desert']) {
+  for (const th of ['over', 'cave', 'sky', 'castle', 'ice', 'desert', 'sea', 'beach']) {
     TILES[th] = tileArt(th);
     LAYERS[th] = makeLayers(th);
     const br = THEMES[th].brick;
@@ -1955,6 +2263,12 @@ function initArt() {
   }
   Object.assign(DECOR.ice, { pine: makePine(), snowman: makeSnowman() });
   Object.assign(DECOR.desert, { cactus0: makeCactus(30, 2), cactus1: makeCactus(21, 1), rock: makeRock(), pyrwall: makePyrWall() });
+  const seaBits = { shell: makeShell(), starfish: makeStarfish(), arrow: makeArrowDown() };
+  Object.assign(DECOR.sea, seaBits, {
+    coral0: makeCoral(3, ['#ff7a9a', '#b83a5a', '#ffd0dc']), coral1: makeCoral(7, ['#ff9a4a', '#b8582a', '#ffe0a8']), coral2: makeCoral(12, ['#ffd84a', '#b88a1a', '#fff4b0']),
+    fan: makeFanCoral(), anemone: makeAnemone(), rock: makeSeaRock(), kelpL: makeKelpLeaf(false), kelpR: makeKelpLeaf(true),
+  });
+  Object.assign(DECOR.beach, seaBits, { palm: makePalm() });
 }
 
 // =====================================================================
@@ -2077,6 +2391,10 @@ function spawnEntity(s) {
     case 'tumble': return { ...base, x: x + 1, y: yb - 14, w: 14, h: 14, vx: -1.15, enemy: true, stomp: true, killable: true, bn: 0 };
     case 'icicle': return { ...base, x: x + 4, y: s.y * 16, w: 8, h: 15, st: 'hang' };
     case 'sinkplat': return { ...base, x, y: s.y * 16, by: s.y * 16, w: s.w * 16, h: 8, dx: 0, dy: 0, plat: true, keep: true, active: true };
+    // sea creatures: in water, touching them hurts; fireballs and the star kill them
+    case 'puffer': return { ...base, x: x + 2, y: s.y * 16 + 2, cx: x + 8, cy: s.y * 16 + 8, homeX: x + 8, baseY: s.y * 16 + 8, w: 12, h: 12, vx: -0.3, inf: 0, puff: 0, enemy: true, stomp: false, killable: true };
+    case 'jelly': return { ...base, x: x + 2, y: s.y * 16 - 2, floorY: s.y * 16 - 2, w: 12, h: 14, enemy: true, stomp: false, killable: true, pulse: 30 + ((s.x * 7) % 40) };
+    case 'fish': return { ...base, x: x + 1, y: s.y * 16 + 3, baseY: s.y * 16 + 3, w: 14, h: 10, vx: s.vx || -0.75, kind: s.x % 2, enemy: true, stomp: false, killable: true };
   }
   return null;
 }
@@ -2191,7 +2509,8 @@ function playerControl() {
   let ax = 0;
   if (I.left && !I.right) ax = -1; else if (I.right && !I.left) ax = 1;
   if (P.ducking && P.onGround) ax = 0;
-  const run = I.b, max = run ? 2.6 : 1.55;
+  // underwater: no running, slower top speed (a bit faster while swimming than while wading on the floor)
+  const W = !!area.water, run = I.b && !W, max = W ? (P.onGround ? 1.1 : 1.35) : run ? 2.6 : 1.55;
   P.skid = false;
   if (ax) {
     if (P.onGround && P.vx * ax < 0 && Math.abs(P.vx) > 0.6) {
@@ -2206,13 +2525,13 @@ function playerControl() {
   // jump (buffered + coyote time for touch screens)
   if (I.aP) P.jbuf = 7; else if (P.jbuf > 0) P.jbuf--;
   if (P.onGround) P.coyote = 6; else if (P.coyote > 0) P.coyote--;
-  if (P.jbuf > 0 && P.coyote > 0) {
+  if (!W && P.jbuf > 0 && P.coyote > 0) {
     P.vy = -(4.8 + Math.min(Math.abs(P.vx), 2.6) * 0.2);
     P.jumping = true; P.jbuf = 0; P.coyote = 0; P.onGround = false; P.onPlat = null;
     SND.play(P.size ? 'bigjump' : 'jump'); P.sq = -0.8;
   }
   if (!I.a) P.jumping = false;
-  P.vy = Math.min(P.vy + ((P.jumping && P.vy < 0) ? 0.18 : 0.55), 5.6);
+  P.vy = W ? swimVy(I) : Math.min(P.vy + ((P.jumping && P.vy < 0) ? 0.18 : 0.55), 5.6);
   // fire
   if (P.fireCD > 0) P.fireCD--;
   if (P.throwT > 0) P.throwT--;
@@ -2227,6 +2546,7 @@ function playerControl() {
   const res = moveBody(P, true);
   if (P.x < G.cam.x) { P.x = G.cam.x; if (P.vx < 0) P.vx = 0; }
   if (res.wall) P.vx = 0;
+  if (W && P.y < 6) { P.y = 6; if (P.vy < 0) P.vy = 0; } // the water surface
   P.onGround = res.ground;
   // platforms
   P.onPlat = null;
@@ -2285,6 +2605,21 @@ function playerControl() {
     if (P.star === 0) MUSIC.play(THEMES[area.theme].music, null, G.hurry ? 1.3 : 1);
   }
 }
+// swimming: A = one stroke upward (repeatable), otherwise a slow sink with a capped speed
+const SWIM = { stroke: -2.35, sink: 0.07, maxSink: 1.1 };
+function swimVy(I) {
+  P.jumping = false; P.jbuf = 0; P.coyote = 0;
+  if (P.swimT > 0) P.swimT--;
+  if (!P.onGround) P.anim += P.swimT > 0 ? 0.2 : 0.05;
+  if (G.frame % 72 === 0) bubble(P.x + P.w / 2 + P.dir * 5, P.y + 3);
+  if (I.aP) {
+    P.swimT = 16; P.onGround = false; P.onPlat = null;
+    SND.play('swim'); bubble(P.x + P.w / 2, P.y + P.h - 4); bubble(P.x + P.w / 2 - P.dir * 4, P.y + P.h - 2);
+    return SWIM.stroke;
+  }
+  return Math.min(P.vy + SWIM.sink, SWIM.maxSink);
+}
+function bubble(x, y) { G.parts.push({ k: 'bubble', x, y, t: 0, ph: Math.random() * 6, r: Math.random() < 0.3 ? 2 : 1 }); }
 function startFlag() {
   P.state = 'flag'; P.stateT = 0; P.vx = 0; P.vy = 0; P.onPlat = null; P.star = 0; setDuck(false);
   const fx = area.flag.x * 16;
@@ -2394,6 +2729,7 @@ function updateEnt(e) {
   if (!e.keep && e.x + e.w < G.cam.x - 80) { e.dead = true; return; }
   e.t++;
   if (e.dying) { e.vy += 0.3; e.y += e.vy; e.x += e.vx; if (e.y > VH + 32) e.dead = true; return; }
+  if (e.water) { waterFire(e); return; }
   switch (e.type) {
     case 'kestane': case 'spiky': {
       if (e.flat) { if (--e.flat <= 0) e.dead = true; return; }
@@ -2533,6 +2869,45 @@ function updateEnt(e) {
       if (on && G.frame % 5 === 0) G.parts.push({ k: 'spark', x: e.x + rnd(2, e.w - 2), y: e.y + e.h, t: 0, vx: 0, vy: 0.5, col: '#f0c878' });
       break;
     }
+    case 'puffer': {
+      // patrols around its home and puffs up into a big spiky ball while the hero is close
+      const near = P.state === 'play' && Math.abs(P.x + P.w / 2 - e.cx) < 46 && Math.abs(P.y + P.h / 2 - e.cy) < 40;
+      if (near) { if (e.puff <= 0) SND.play('puff'); e.puff = Math.max(e.puff, 50); }
+      else if (e.puff > 0) e.puff--;
+      e.inf = approach(e.inf, e.puff > 0 ? 1 : 0, 0.1);
+      if (e.inf < 0.5) {
+        e.cx += e.vx;
+        if (e.cx < e.homeX - 36) e.vx = Math.abs(e.vx); else if (e.cx > e.homeX + 36) e.vx = -Math.abs(e.vx);
+        else if (solidAt(Math.floor((e.cx + Math.sign(e.vx) * 9) / 16), Math.floor(e.cy / 16))) e.vx = -e.vx;
+      }
+      e.cy = e.baseY + Math.sin(e.t * 0.035) * 5;
+      const s = 12 + e.inf * 8; e.w = s; e.h = s; e.x = e.cx - s / 2; e.y = e.cy - s / 2;
+      playerHits(e);
+      break;
+    }
+    case 'jelly': {
+      // drifts down slowly; every so often it pulses upward, toward the hero when he is above it
+      if (e.vy < 0) e.vy *= 0.96;
+      e.vy = Math.min(e.vy + 0.015, 0.35); e.vx *= 0.985;
+      if (--e.pulse <= 0) {
+        const above = P.state === 'play' && P.y + P.h / 2 < e.y + 4 && Math.abs(P.x - e.x) < 120;
+        e.pulse = above ? 70 : 110;
+        e.vy = above ? -1.5 : -0.8;
+        if (above) e.vx = clamp((P.x - e.x) * 0.01, -0.5, 0.5);
+      }
+      moveBody(e);
+      if (e.y > e.floorY) { e.y = e.floorY; if (e.vy > 0) e.vy = 0; }
+      if (e.y < 8) { e.y = 8; if (e.vy < 0) e.vy = 0; }
+      playerHits(e);
+      break;
+    }
+    case 'fish': {
+      // swims in a straight line with a gentle wiggle; turns at rocks
+      e.x += e.vx; e.y = e.baseY + Math.sin(e.t * 0.07 + e.baseY) * 3;
+      if (solidAt(Math.floor((e.vx < 0 ? e.x : e.x + e.w) / 16), Math.floor((e.y + e.h / 2) / 16))) e.vx = -e.vx;
+      playerHits(e);
+      break;
+    }
     case 'item': updateItem(e); break;
     case 'fireball': {
       e.vy = Math.min(e.vy + 0.35, 4.5);
@@ -2558,6 +2933,16 @@ function updateEnt(e) {
       break;
     }
     case 'axe': if (P.state === 'play' && overlap(P, e)) startBridgeSeq(e); break;
+  }
+}
+// fireballs keep working underwater: they shoot straight (no bounce), trail bubbles and fizzle out after a while
+function waterFire(e) {
+  e.x += e.vx; e.y += Math.sin(e.t * 0.3) * 0.4;
+  if (e.t % 6 === 0) bubble(e.x + 4, e.y + 2);
+  if (e.t > 75 || solidAt(Math.floor((e.x + 4) / 16), Math.floor((e.y + 4) / 16)) || e.x < G.cam.x - 16 || e.x > G.cam.x + VW + 16) { e.dead = true; puff(e.x, e.y); return; }
+  for (const o of area.ents) {
+    if (o.dead || o.dying || !o.enemy || !o.active || !o.killable || !overlap(e, o)) continue;
+    flipKill(o, Math.sign(e.vx)); addScore(200, o.x, o.y); SND.play('kick'); e.dead = true; puff(e.x, e.y); break;
   }
 }
 function puff(x, y) { for (let i = 0; i < 4; i++) G.parts.push({ k: 'spark', x: x + 4, y: y + 4, t: 0, vx: rnd(-1, 1), vy: rnd(-1, 1), col: i % 2 ? '#ffd84a' : '#ff6a1a' }); }
@@ -2651,7 +3036,7 @@ function updateSeq() {
 function startLevel(idx, fresh) {
   G.levelIdx = idx;
   if (fresh) { G.cp = false; }
-  G.state = 'intro'; G.stateT = 150;
+  G.state = 'intro'; G.stateT = G.ta ? 80 : 150;
   MUSIC.stop();
 }
 function beginPlay() {
@@ -2669,7 +3054,8 @@ function beginPlay() {
   if (G.level.checkpoint) G.level.cpY = (groundRowAt(G.level.checkpoint) + 1) * 16;
   // remove enemies that would be right on top of the spawn point
   for (const e of area.ents) if (e.enemy && e.x > P.x - 48 && e.x < P.x + 64 && e.type !== 'firebar' && e.type !== 'podoboo') e.dead = true;
-  G.state = 'play'; G.fade = 0; G.cam.look = 0; P.sq = 0;
+  G.state = 'play'; G.fade = 0; G.cam.look = 0; P.sq = 0; P.swimT = 0;
+  if (G.ta) { G.ta.t = 0; G.ta.after = 0; }
   MUSIC.play(THEMES[area.theme].music);
 }
 // lowest standable spot with two tiles of headroom (ignores ceilings and blocks floating above the floor)
@@ -2682,7 +3068,9 @@ function groundRowAt(tx) {
 }
 function nextLevel() {
   G.cp = false;
-  if (G.levelIdx + 1 < LEVELS.length) {
+  if (G.ta) { taFinish(); return; }
+  if (LEVELS[G.levelIdx].secret) { toSeaEnding(); return; }
+  if (G.levelIdx + 1 < MAIN_LEVELS) {
     G.unlocked = Math.max(G.unlocked, G.levelIdx + 2); store.set('unlocked', G.unlocked);
     startLevel(G.levelIdx + 1, true);
   } else toEnding();
@@ -2699,23 +3087,58 @@ function gameOver() {
   G.state = 'gameover'; G.stateT = 260;
   MUSIC.play('gameover');
 }
+// the secret level's own ending: an underwater credits roll, then back to the title
+function toSeaEnding() {
+  saveBest();
+  G.state = 'seaend'; G.stateT = 0; G.parts = [];
+  MUSIC.play('sea');
+}
 function toTitle() {
+  if (G.ta) { G.ta = null; G.score = 0; } // time-attack runs never count towards the high score
   saveBest();
   G.state = 'title'; G.stateT = 0; G.parts = [];
   if (SND.ctx) MUSIC.play('title'); else MUSIC.stop();
 }
 function newGame(levelIdx) {
-  G.score = 0; G.coins = 0; G.lives = 3; P.size = 0; G.cp = false;
+  G.score = 0; G.coins = 0; G.lives = 3; P.size = 0; G.cp = false; G.ta = null;
   startLevel(levelIdx, true);
+}
+
+// ---------- time attack ("ZAMANA KARŞI") ----------
+// one unlocked level against a precise clock; dying restarts it instantly, best times per level live in store 'ta'
+G.taMode = store.get('tamode', false); G.taBest = store.get('ta', {}); G.ta = null;
+function fmtTime(f) {
+  const cs = Math.floor(f * 100 / 60), m = Math.floor(cs / 6000), s = Math.floor(cs / 100) % 60;
+  return String(Math.min(99, m)).padStart(2, '0') + ':' + String(s).padStart(2, '0') + '.' + String(cs % 100).padStart(2, '0');
+}
+function taBestOf(i) { return G.taBest[LEVELS[i].id] || 0; }
+function startTimeAttack(idx) {
+  G.ta = { lv: idx, t: 0, after: 0, tries: 1 };
+  G.score = 0; G.coins = 0; G.lives = 1; P.size = 0; G.cp = false;
+  startLevel(idx, true);
+}
+function taRestart() { G.ta.tries++; G.score = 0; G.coins = 0; P.size = 0; G.cp = false; beginPlay(); }
+function taTick() {
+  if (!G.timeStop) { G.ta.t++; return; }
+  // the clock stopped at the flag / axe: let the moment play a little, then show the result
+  if (++G.ta.after === (G.seq && G.seq.k === 'bridge' ? 170 : 100)) wipeOut(taFinish);
+}
+function taFinish() {
+  const id = LEVELS[G.ta.lv].id, prev = G.taBest[id] || 0, t = G.ta.t;
+  G.ta.prev = prev; G.ta.rec = !prev || t < prev;
+  if (G.ta.rec) { G.taBest[id] = t; store.set('ta', G.taBest); }
+  G.state = 'taresult'; G.stateT = 0; G.rsel = 0; G.parts = [];
+  if (MUSIC.name !== 'clear' && MUSIC.name !== 'castleclear') MUSIC.play('clear');
 }
 
 function updatePlay() {
   G.area_new = [];
+  if (G.ta) taTick();
   if (G.freeze > 0) {
     G.freeze--; if (P.transform > 0) P.transform--;
     return;
   }
-  if (!G.timeStop && P.state === 'play') {
+  if (!G.ta && !G.timeStop && P.state === 'play') {
     if (++G.timeAcc >= 24) {
       G.timeAcc = 0; G.time--;
       if (G.time === 100 && !G.hurry) { G.hurry = true; SND.play('hurry'); MUSIC.setSpeed(1.3); }
@@ -2727,6 +3150,7 @@ function updatePlay() {
   updatePlayerState();
   if (G.state !== 'play') return;
   for (const e of area.ents) if (!e.plat && !e.dead) updateEnt(e);
+  if (area.water) for (const n of G.area_new) if (n.type === 'fireball' && !n.water) { n.water = true; n.vx = Math.sign(n.vx) * 2.6; n.vy = 0; }
   if (G.area_new.length) area.ents.push(...G.area_new);
   if (G.frame % 30 === 0) area.ents = area.ents.filter(e => !e.dead);
   updateSeq();
@@ -2755,11 +3179,18 @@ function updateParts() {
       case 'fw': p.x += p.vx; p.y += p.vy; p.vx *= 0.97; p.vy = p.vy * 0.97 + 0.03; if (p.t > 55) p.dead = 1; break;
       case 'star': p.x += p.vx; p.y += p.vy; p.vx *= 0.86; p.vy *= 0.86; if (p.t > 16) p.dead = 1; break;
       case 'twinkle': if (p.t > (p.big ? 10 : 14)) p.dead = 1; break;
+      case 'bubble': p.y -= 0.4 + p.r * 0.12; p.x += Math.sin(p.t * 0.15 + p.ph) * 0.3; if (p.t > 120 || p.y < 7) p.dead = 1; break;
     }
   }
   if (G.parts.length > 0) G.parts = G.parts.filter(p => !p.dead);
 }
 function updateDying() {
+  if (G.ta) { // time attack: no lives, no game over, just a quick restart of the level
+    G.stateT++;
+    if (G.stateT > 20) { P.vy = Math.min(P.vy + 0.25, 6); P.y += P.vy; }
+    if (G.stateT === 36) wipeOut(taRestart, 12);
+    return;
+  }
   G.stateT++;
   if (G.stateT === 170) wipeOut(null, 18);
   if (G.stateT > 28) { P.vy = Math.min(P.vy + 0.25, 6); P.y += P.vy; }
@@ -2839,6 +3270,7 @@ function drawPlayer() {
   if (P.ducking) key = 'duck';
   else if (P.state === 'flag') key = 'w2';
   else if (P.state === 'pipeIn' || P.state === 'pipeOut') key = 'stand';
+  else if (area && area.water && !P.onGround && P.state === 'play') key = P.swimT > 8 ? 'jump' : ['w1', 'w2', 'w3', 'w2'][Math.floor(P.anim) % 4];
   else if (!P.onGround && P.state !== 'axe' && P.state !== 'meet') key = 'jump';
   else if (P.skid) key = 'skid';
   else if (Math.abs(P.vx) > 0.1 || P.state === 'walk' || P.state === 'walkP') key = ['w1', 'w2', 'w3', 'w2'][Math.floor(P.anim) % 4];
@@ -2928,6 +3360,42 @@ function drawEnt(e) {
       break;
     case 'icicle': D(ART.icicle, e.x - 4 + (e.st === 'shake' ? ((G.frame >> 1) % 2 ? 1 : -1) : 0), e.y); break;
     case 'sinkplat': D(ART.sandslab, e.x, e.y); break;
+    case 'puffer': {
+      const fl = (e.inf > 0.5 ? P.x + P.w / 2 > e.cx : e.vx > 0) ? 1 : 0;
+      if (e.dying) D(ART.puffer.dead, e.x - 2, e.y - 2);
+      else if (e.inf > 0.7) D(ART.puffer.big[fl], e.cx - 12, e.cy - 12);
+      else if (e.inf > 0.1) { const s = Math.round(16 + e.inf * 8); ctx.drawImage(ART.puffer.swim[0][fl], Math.round(e.cx - s / 2), Math.round(e.cy - s / 2), s, s); }
+      else D(ART.puffer.swim[(f >> 3) % 2][fl], e.cx - 8, e.cy - 8);
+      break;
+    }
+    case 'jelly': D(e.dying ? ART.jelly.dead : ART.jelly.fr[e.vy < -0.35 ? 1 : 0], e.x - 2, e.y - 1); break;
+    case 'fish': { const F = ART.fish[e.kind]; D(e.dying ? F.dead : F.swim[(f >> 3) % 2][e.vx < 0 ? 0 : 1], e.x - 1, e.y - 1); break; }
+  }
+}
+function drawKelp(d, set) {
+  for (let i = 0; i < d.n; i++) {
+    const sx = Math.round(d.x + Math.sin(G.frame * 0.035 + d.ph + i * 0.5) * i * 0.55), sy = d.y - (i + 1) * 6;
+    ctx.fillStyle = '#14502a'; ctx.fillRect(sx - 1, sy, 4, 7);
+    ctx.fillStyle = i % 3 ? '#2a9a4a' : '#3cb85a'; ctx.fillRect(sx, sy, 2, 7);
+    if (i > 0) D(i % 2 ? set.kelpL : set.kelpR, i % 2 ? sx - 6 : sx + 1, sy - 1);
+  }
+}
+// underwater: light rays from the surface, a shimmering surface line and drifting bubbles (all frame-driven)
+function drawSea(camx) {
+  for (let i = 0; i < 5; i++) {
+    const span = VW + 160, bx = ((i * 113 + 20 - camx * 0.25) % span + span) % span - 80;
+    const sw = Math.sin(G.frame * 0.012 + i * 1.7) * 12, w0 = 10 + (i % 2) * 8;
+    ctx.fillStyle = 'rgba(220,250,255,' + (0.055 + 0.025 * Math.sin(G.frame * 0.02 + i * 2)).toFixed(3) + ')';
+    for (let y = 0; y < VH; y += 2) { const k = y / VH; ctx.fillRect(Math.round(bx + (44 + sw) * k), y, Math.round(w0 + 26 * k), 2); }
+  }
+  ctx.fillStyle = 'rgba(255,255,255,.45)';
+  for (let x = 0; x < VW; x += 4) ctx.fillRect(x, 2 + Math.round(Math.sin((x + camx) * 0.07 + G.frame * 0.05) * 1.5), 4, 1);
+  for (let i = 0; i < 22; i++) {
+    const sp = 0.25 + hash(i, 3) * 0.45, y = VH + 10 - (hash(i, 4) * 270 + G.frame * sp) % 270;
+    const x = Math.round(((hash(i, 1) * (VW + 20) - camx * 0.6 + Math.sin(G.frame * 0.03 + i) * 4) % (VW + 20) + VW + 20) % (VW + 20) - 10), yy = Math.round(y);
+    ctx.fillStyle = 'rgba(230,250,255,.7)';
+    if (hash(i, 5) < 0.3) { ctx.fillRect(x - 1, yy - 2, 3, 1); ctx.fillRect(x - 1, yy + 2, 3, 1); ctx.fillRect(x - 2, yy - 1, 1, 3); ctx.fillRect(x + 2, yy - 1, 1, 3); ctx.fillRect(x - 1, yy - 1, 1, 1); }
+    else ctx.fillRect(x, yy, hash(i, 6) < 0.5 ? 2 : 1, hash(i, 6) < 0.5 ? 2 : 1);
   }
 }
 // falling snow / drifting sand in front of the ice & desert worlds (stateless, frame-driven)
@@ -2956,11 +3424,12 @@ function drawDecor(A, camx) {
   const set = DECOR[A.theme];
   for (const d of A.decor) {
     let img;
+    if (d.k === 'kelp') { if (d.x > camx - 40 && d.x < camx + VW + 40) drawKelp(d, set); continue; }
     if (d.k === 'torch') img = ART.torch[(G.frame >> 3) % 3];
     else img = set[d.k];
     if (!img) continue;
     if (d.x + img.width < camx - 8 || d.x > camx + VW + 8) continue;
-    D(img, d.x, d.y - img.height);
+    D(img, d.x, d.y - img.height + (d.k === 'arrow' ? Math.round(Math.sin(G.frame / 8) * 2) : 0));
   }
   if (A.castle) D(ART.castle, A.castle.x * 16, 13 * 16 - 80);
   if (A.flag) {
@@ -3008,6 +3477,13 @@ function drawParts(front) {
         break;
       }
       case 'dust': ctx.fillStyle = 'rgba(255,244,224,' + (1 - p.t / 16) + ')'; ctx.fillRect(Math.round(p.x - 2), Math.round(p.y - 3), 3, 3); break;
+      case 'bubble': {
+        const x = Math.round(p.x), y = Math.round(p.y);
+        ctx.fillStyle = 'rgba(235,252,255,.85)';
+        if (p.r > 1) { ctx.fillRect(x - 1, y - 2, 3, 1); ctx.fillRect(x - 1, y + 2, 3, 1); ctx.fillRect(x - 2, y - 1, 1, 3); ctx.fillRect(x + 2, y - 1, 1, 3); ctx.fillRect(x - 1, y - 1, 1, 1); }
+        else { ctx.fillRect(x, y - 1, 1, 3); ctx.fillRect(x - 1, y, 3, 1); }
+        break;
+      }
       case 'spark': case 'fw': ctx.fillStyle = p.col; ctx.fillRect(Math.round(p.x), Math.round(p.y), p.k === 'fw' ? 2 : 1 + (p.t < 8), p.k === 'fw' ? 2 : 1 + (p.t < 8)); break;
     }
   }
@@ -3019,12 +3495,17 @@ function drawHUD() {
   drawText(String(G.score).padStart(6, '0'), 8, 15, '#fff4e0', o);
   const cx = Math.round(VW * 0.2) + 10;
   ctx.drawImage(ART.heart, cx - 1, 5);
-  drawText('×' + G.lives, cx + 8, 5, '#fff4e0', o);
+  drawText('×' + (G.ta ? '∞' : G.lives), cx + 8, 5, '#fff4e0', o);
   ctx.drawImage(ART.mcoin, cx, 15);
   drawText('×' + String(G.coins).padStart(2, '0'), cx + 8, 15, '#ffd84a', o);
-  const wx = Math.round(VW * 0.7) - 6;
+  const wx = Math.round(VW * (G.ta ? 0.6 : 0.7)) - 6; // the stopwatch is wider than the countdown
   drawText('DÜNYA', wx, 5, '#fff4e0', o);
   drawText(G.level ? G.level.def.id : '1-1', wx + 6, 15, '#fff4e0', o);
+  if (G.ta) { // time attack: a precise stopwatch replaces the countdown
+    drawText('SÜRE', VW - 8, 5, '#6af0d8', { shadow: sh, align: 'right' });
+    drawText(fmtTime(G.ta.t), VW - 8, 15, G.timeStop && (G.frame >> 3) % 2 ? '#ffd84a' : '#fff4e0', { shadow: sh, align: 'right' });
+    return;
+  }
   drawText('SÜRE', VW - 8, 5, '#fff4e0', { shadow: sh, align: 'right' });
   drawText(String(Math.max(0, G.time)).padStart(3, '0'), VW - 8, 15, G.time <= 100 && (G.frame >> 4) % 2 ? '#ff6a5a' : '#fff4e0', { shadow: sh, align: 'right' });
 }
@@ -3051,6 +3532,7 @@ function renderWorld() {
   if (P.state !== 'pipeIn' && P.state !== 'pipeOut') drawPlayer();
   drawParts();
   ctx.restore();
+  if (A.water) drawSea(camx);
   drawWeather(A.theme, camx);
   drawHUD();
   if (G.msg) drawMessage();
@@ -3072,17 +3554,31 @@ function drawMessage() {
 }
 
 // ---------- screens ----------
-const LEVEL_TINT = { over: ['#5ec948', '#2a7a2a'], cave: ['#5a78e8', '#23264a'], sky: ['#ffc08a', '#e8708a'], ice: ['#a8dcf8', '#2a4a8a'], desert: ['#f0c060', '#a8541c'], castle: ['#e4372e', '#3a1620'] };
-const LEVEL_THEME = ['over', 'cave', 'sky', 'ice', 'desert', 'castle'];
-// one row of cards on wide screens, otherwise a grid of two rows (3 × 2 for six levels)
+const LEVEL_TINT = { over: ['#5ec948', '#2a7a2a'], cave: ['#5a78e8', '#23264a'], sky: ['#ffc08a', '#e8708a'], ice: ['#a8dcf8', '#2a4a8a'], desert: ['#f0c060', '#a8541c'], castle: ['#e4372e', '#3a1620'], sea: ['#5ad4f0', '#0c3a80'] };
+const LEVEL_THEME = ['over', 'cave', 'sky', 'ice', 'desert', 'castle', 'sea'];
+// one row of cards on wide screens, otherwise a grid of two rows (4 + 3 for seven levels, each row centred)
 function titleCards() {
   const n = LEVELS.length, gap = 8;
   if (VW >= 380) {
     const w = Math.min(60, Math.floor((VW - 24 - (n - 1) * gap) / n)), x0 = Math.round((VW - (n * w + (n - 1) * gap)) / 2);
-    return LEVELS.map((L, i) => ({ x: x0 + i * (w + gap), y: 104, w, h: 40 }));
+    return LEVELS.map((L, i) => ({ x: x0 + i * (w + gap), y: 108, w, h: 40 }));
   }
-  const cols = Math.ceil(n / 2), h = 26, w = Math.min(72, Math.floor((VW - 24 - (cols - 1) * gap) / cols)), x0 = Math.round((VW - (cols * w + (cols - 1) * gap)) / 2);
-  return LEVELS.map((L, i) => ({ x: x0 + (i % cols) * (w + gap), y: 97 + Math.floor(i / cols) * (h + 6), w, h }));
+  const cols = Math.ceil(n / 2), h = 26, w = Math.min(72, Math.floor((VW - 24 - (cols - 1) * gap) / cols));
+  return LEVELS.map((L, i) => {
+    const row = Math.floor(i / cols), inRow = row ? n - cols : cols, x0 = Math.round((VW - (inRow * w + (inRow - 1) * gap)) / 2);
+    return { x: x0 + (i % cols) * (w + gap), y: 106 + row * (h + 6), w, h };
+  });
+}
+// NORMAL | ZAMANA KARŞI mode switch between the logo and the cards (tap a side, or ▼ / B on the pad)
+function modeToggle() { const w = 144, split = 56; return { x: Math.round((VW - w) / 2), y: VW >= 380 ? 91 : 87, w, h: 13, split }; }
+function toggleMode(ta) {
+  G.taMode = ta === undefined ? !G.taMode : ta; store.set('tamode', G.taMode);
+  SND.init(); SND.play('select');
+}
+function cardTime(i) { const t = taBestOf(i); return t ? fmtTime(t).replace(/^0/, '') : '-:--.--'; }
+function drawPadlock(lx, ly) {
+  ctx.fillStyle = '#8a8698'; ctx.fillRect(lx + 1, ly - 4, 6, 2); ctx.fillRect(lx + 1, ly - 4, 2, 5); ctx.fillRect(lx + 5, ly - 4, 2, 5); ctx.fillRect(lx, ly, 8, 7);
+  ctx.fillStyle = '#3a3648'; ctx.fillRect(lx + 3, ly + 2, 2, 3);
 }
 function renderTitle() {
   const camx = G.frame * 0.6;
@@ -3093,63 +3589,181 @@ function renderTitle() {
   // bush scrolling
   const bush = DECOR.over.bush56, bx = ((-camx * 1) % (VW + 120) + VW + 120) % (VW + 120) - 60;
   D(bush, bx, 208 - bush.height);
-  const cards = titleCards(), grid = cards[cards.length - 1].y > cards[0].y;
-  const ty = grid ? [86, 162, 175, 222] : [92, 152, 166, 180]; // subtitle, name, prompt, best
+  const cards = titleCards(), grid = cards[cards.length - 1].y > cards[0].y, TA = G.taMode;
+  const ty = grid ? [0, 172, 185, 222] : [0, 156, 170, 184]; // (mode switch), name, prompt, best
   // hero running, chestnut chasing
   const fr = ['s_w1', 's_w2', 's_w3', 's_w2'][(G.frame >> 3) % 4];
-  const hx = Math.round(VW * (grid ? 0.76 : 0.62));
+  const hx = Math.round(grid ? VW * 0.76 : VW / 2 + 78); // keep the runners clear of the centred texts
   D(ART.hero[fr.replace('s_', 'b_')][0], hx, 208 - 31);
   D(ART.kestane.walk[(G.frame >> 3) % 2], hx - 44 + Math.sin(G.frame / 30) * 6, 208 - 16);
   D(ART.beetle.walk[(G.frame >> 3) % 2][1], hx - 70 + Math.sin(G.frame / 24) * 4, 208 - 16);
   if (grid) D(ART.bee.fly[(G.frame >> 2) % 2][1], hx + 22, 160 + Math.sin(G.frame / 20) * 4);
-  else D(ART.bee.fly[(G.frame >> 2) % 2][1], hx - 100, 150 + Math.sin(G.frame / 20) * 8);
+  else D(ART.bee.fly[(G.frame >> 2) % 2][1], hx + 28, 158 + Math.sin(G.frame / 20) * 6);
   // logo
   const bob = Math.round(Math.sin(G.frame / 25) * 2) - (grid ? 5 : 0);
   drawText('SÜPER', VW / 2, 22 + bob, '#ffd84a', { scale: 2, align: 'center', outline: K });
   drawText('BIYIK', VW / 2 + 2, 48 + bob, K, { scale: 5, align: 'center' });
   drawText('BIYIK', VW / 2, 46 + bob, '#e4572e', { scale: 5, align: 'center', outline: K });
-  drawText(LEVELS.length + ' BÖLÜMLÜK PİKSEL MACERA', VW / 2, ty[0], '#fff4e0', { align: 'center', shadow: K });
+  // mode switch
+  const mt = modeToggle();
+  ctx.fillStyle = K; ctx.fillRect(mt.x - 2, mt.y - 2, mt.w + 4, mt.h + 4);
+  ctx.fillStyle = '#fff4e0'; ctx.fillRect(mt.x - 1, mt.y - 1, mt.w + 2, mt.h + 2);
+  for (const [on, x, w, label, col] of [[!TA, mt.x, mt.split, 'NORMAL', '#ffd84a'], [TA, mt.x + mt.split, mt.w - mt.split, 'ZAMANA KARŞI', '#6af0d8']]) {
+    ctx.fillStyle = on ? col : '#3a2e5a'; ctx.fillRect(x, mt.y, w, mt.h);
+    ctx.fillStyle = on ? 'rgba(255,255,255,.35)' : 'rgba(255,255,255,.08)'; ctx.fillRect(x, mt.y, w, 2);
+    drawText(label, x + w / 2, mt.y + 4, on ? K : '#a89cc0', { align: 'center' });
+  }
+  ctx.fillStyle = K; ctx.fillRect(mt.x + mt.split, mt.y, 1, mt.h);
   // level cards
   const band = grid ? 6 : 12;
   cards.forEach((c, i) => {
-    const locked = i >= G.unlocked, sel = i === G.sel;
+    const locked = i >= G.unlocked, sel = i === G.sel, secret = !!LEVELS[i].secret;
     const [c1, c2] = LEVEL_TINT[LEVEL_THEME[i]];
     ctx.fillStyle = K; ctx.fillRect(c.x - 2, c.y - 2, c.w + 4, c.h + 4);
-    ctx.fillStyle = sel ? ((G.frame >> 3) % 2 ? '#ffd84a' : '#fff4e0') : '#8a8698'; ctx.fillRect(c.x - 1, c.y - 1, c.w + 2, c.h + 2);
-    ctx.fillStyle = locked ? '#3a3648' : c2; ctx.fillRect(c.x, c.y, c.w, c.h);
+    ctx.fillStyle = sel ? ((G.frame >> 3) % 2 ? '#ffd84a' : '#fff4e0') : secret && !locked ? '#6af0d8' : '#8a8698'; ctx.fillRect(c.x - 1, c.y - 1, c.w + 2, c.h + 2);
+    ctx.fillStyle = locked ? (secret ? '#262236' : '#3a3648') : c2; ctx.fillRect(c.x, c.y, c.w, c.h);
     if (!locked) { ctx.fillStyle = c1; ctx.fillRect(c.x, c.y + c.h - band, c.w, band); ctx.fillStyle = 'rgba(255,255,255,.25)'; ctx.fillRect(c.x, c.y + c.h - band, c.w, 2); }
-    if (locked && grid) { // padlock beside the id
-      const lx = c.x + c.w / 2 + 14, ly = c.y + 12;
-      ctx.fillStyle = '#8a8698'; ctx.fillRect(lx + 1, ly - 4, 6, 2); ctx.fillRect(lx + 1, ly - 4, 2, 5); ctx.fillRect(lx + 5, ly - 4, 2, 5); ctx.fillRect(lx, ly, 8, 7);
-      ctx.fillStyle = '#3a3648'; ctx.fillRect(lx + 3, ly + 2, 2, 3);
+    if (secret && !locked) for (let k = 0; k < 3; k++) { // bubbles rising inside the secret card
+      const bx = c.x + 4 + ((hash(k, 9) * (c.w - 8)) | 0), by = c.y + c.h - 2 - ((G.frame * 0.3 + k * 13) % (c.h - 4));
+      ctx.fillStyle = 'rgba(230,250,255,.7)'; ctx.fillRect(Math.round(bx), Math.round(by), 2, 2);
     }
-    drawText(LEVELS[i].id, c.x + c.w / 2 - (locked && grid ? 6 : 0), c.y + (grid ? 5 : 6), locked ? '#8a8698' : '#fff4e0', { align: 'center', scale: 2, shadow: K });
-    if (locked && !grid) { // padlock
-      const lx = c.x + c.w / 2 - 4, ly = c.y + 26;
-      ctx.fillStyle = '#8a8698'; ctx.fillRect(lx + 1, ly - 4, 6, 2); ctx.fillRect(lx + 1, ly - 4, 2, 5); ctx.fillRect(lx + 5, ly - 4, 2, 5); ctx.fillRect(lx, ly, 8, 7);
-      ctx.fillStyle = '#3a3648'; ctx.fillRect(lx + 3, ly + 2, 2, 3);
+    const idCol = locked ? (secret ? '#5a5478' : '#8a8698') : secret ? '#ffd84a' : '#fff4e0';
+    if (TA && !locked) { // time attack: the best time sits on the card
+      const has = taBestOf(i) > 0;
+      if (grid) {
+        drawText(LEVELS[i].id, c.x + c.w / 2, c.y + 3, idCol, { align: 'center', shadow: K });
+        drawText(cardTime(i), c.x + c.w / 2, c.y + 12, has ? '#ffffff' : '#a89cc0', { align: 'center', shadow: K });
+      } else {
+        drawText(LEVELS[i].id, c.x + c.w / 2, c.y + 6, idCol, { align: 'center', scale: 2, shadow: K });
+        drawText(cardTime(i), c.x + c.w / 2, c.y + c.h - 9, has ? K : '#1d16268c', { align: 'center' });
+      }
+      return;
     }
+    if (locked && grid) drawPadlock(c.x + c.w / 2 + 14, c.y + 12); // padlock beside the id
+    drawText(LEVELS[i].id, c.x + c.w / 2 - (locked && grid ? 6 : 0), c.y + (grid ? 5 : 6), idCol, { align: 'center', scale: 2, shadow: K });
+    if (locked && !grid) drawPadlock(c.x + c.w / 2 - 4, c.y + 26);
   });
-  const selName = LEVELS[G.sel].name;
-  drawText(selName, VW / 2, ty[1], '#ffd84a', { align: 'center', shadow: K });
+  const selL = LEVELS[G.sel];
+  drawText(selL.secret ? '★ ' + selL.name + ' ★' : selL.name, VW / 2, ty[1], selL.secret ? '#6af0d8' : '#ffd84a', { align: 'center', shadow: K });
   if ((G.frame >> 4) % 2 === 0) drawText(HAS_TOUCH ? 'OYNAMAK İÇİN DOKUN' : 'BAŞLAMAK İÇİN ENTER', VW / 2, ty[2], '#fff4e0', { align: 'center', shadow: K });
-  drawText('EN YÜKSEK ' + String(G.best).padStart(6, '0'), VW / 2, ty[3], '#c8ecff', { align: 'center', shadow: K });
+  if (TA) { const t = taBestOf(G.sel); drawText('EN İYİ SÜRE ' + (t ? fmtTime(t) : '--:--.--'), VW / 2, ty[3], '#6af0d8', { align: 'center', shadow: K }); }
+  else drawText('EN YÜKSEK ' + String(G.best).padStart(6, '0'), VW / 2, ty[3], '#c8ecff', { align: 'center', shadow: K });
   if (!HAS_TOUCH && !grid) drawText('← → HAREKET  Z ZIPLA  X KOŞ/ATEŞ  P DURAKLAT', VW / 2, 228, '#fff4e0', { align: 'center', shadow: K });
 }
-const TIPS = ["İPUCU: B'YE BASILI TUT, HIZLI KOŞ!", 'İPUCU: GİZLİ BLOKLARI ARA!', 'İPUCU: DÜŞEN PLATFORMDA OYALANMA!', 'İPUCU: BUZDA KAYARSIN, ERKEN FREN YAP!', 'İPUCU: KUM PLATFORMU BATAR, ACELE ET!', 'İPUCU: BALTAYA ULAŞ, KÖPRÜYÜ YIK!'];
+const TIPS = ["İPUCU: B'YE BASILI TUT, HIZLI KOŞ!", 'İPUCU: GİZLİ BLOKLARI ARA!', 'İPUCU: DÜŞEN PLATFORMDA OYALANMA!', 'İPUCU: BUZDA KAYARSIN, ERKEN FREN YAP!', 'İPUCU: KUM PLATFORMU BATAR, ACELE ET!', 'İPUCU: BALTAYA ULAŞ, KÖPRÜYÜ YIK!', 'İPUCU: SUDA A İLE KULAÇ AT, YUKARI YÜZ!'];
 function renderIntro() {
   ctx.fillStyle = '#0b0714'; ctx.fillRect(0, 0, VW, VH);
   const def = LEVELS[G.levelIdx];
   const [c1] = LEVEL_TINT[LEVEL_THEME[G.levelIdx]];
-  drawText('DÜNYA ' + def.id, VW / 2, 62, '#fff4e0', { scale: 2, align: 'center' });
-  drawText(def.name, VW / 2, 90, c1, { align: 'center' });
+  drawText(def.secret ? 'GİZLİ DÜNYA' : 'DÜNYA ' + def.id, VW / 2, 62, def.secret ? '#ffd84a' : '#fff4e0', { scale: 2, align: 'center' });
+  drawText(def.secret ? '★ ' + def.name + ' ★' : def.name, VW / 2, 90, c1, { align: 'center' });
   const set = P.size === 2 ? ART.fire : ART.hero;
   const TS = TILES[LEVEL_THEME[G.levelIdx]];
   ctx.drawImage(TS.gtop, VW / 2 - 34, 138); ctx.drawImage(TS.gtop, VW / 2 - 18, 138);
   D((P.size ? set.b_stand : set.s_stand)[0], VW / 2 - 26, P.size ? 107 : 122);
+  if (G.ta) {
+    const t = taBestOf(G.levelIdx);
+    drawText('ZAMANA KARŞI', VW / 2 - 4, 120, '#6af0d8');
+    drawText('EN İYİ ' + (t ? fmtTime(t) : '--:--.--'), VW / 2 - 4, 132, '#fff4e0');
+    drawText('ÖLÜRSEN BÖLÜM HEMEN YENİDEN BAŞLAR', VW / 2, 176, '#8a8698', { align: 'center' });
+    return;
+  }
   drawText('× ' + G.lives, VW / 2 - 4, 127, '#fff4e0');
   drawText(TIPS[G.levelIdx], VW / 2, 176, '#8a8698', { align: 'center' });
   drawText(String(G.score).padStart(6, '0'), VW / 2, 200, '#ffd84a', { align: 'center' });
+}
+// ---------- time attack result ----------
+function taButtons() {
+  const w = 96, h = 22, gap = 10, y = 178;
+  return [{ id: 'retry', label: 'TEKRAR DENE', x: Math.round(VW / 2 - w - gap / 2), y, w, h }, { id: 'menu', label: 'ANA MENÜ', x: Math.round(VW / 2 + gap / 2), y, w, h }];
+}
+function taAct(id) {
+  if (wipeBusy()) return;
+  SND.play('select');
+  if (id === 'retry') wipeOut(taRestart); else wipeOut(toTitle);
+}
+function updateTAResult() {
+  G.stateT++;
+  if (G.stateT === 24 && G.ta.rec) SND.play('record');
+  if (G.stateT < 30 || wipeBusy()) return;
+  const L = input.left && !G._pl, R = input.right && !G._pr;
+  G._pl = input.left; G._pr = input.right;
+  if (L || R || padTaps.left || padTaps.right) { G.rsel = 1 - G.rsel; SND.play('select'); }
+  if (input.aP || input.startP || padTaps.a) { taAct(G.rsel ? 'menu' : 'retry'); return; }
+  if (input.bP || padTaps.b) { taAct('menu'); return; }
+  const tp = G.tap;
+  if (tp && !tp.pad) for (const [i, b] of taButtons().entries()) if (tp.x >= b.x - 3 && tp.x <= b.x + b.w + 3 && tp.y >= b.y - 3 && tp.y <= b.y + b.h + 3) { G.rsel = i; taAct(b.id); }
+}
+function renderTAResult() {
+  const R = G.ta, def = LEVELS[R.lv], best = taBestOf(R.lv);
+  ctx.fillStyle = 'rgba(11,7,20,.62)'; ctx.fillRect(0, 0, VW, VH);
+  const w = Math.min(VW - 20, 240), x = Math.round((VW - w) / 2);
+  panel(x, 30, w, 178);
+  drawText('ZAMANA KARŞI', VW / 2, 38, '#6af0d8', { align: 'center' });
+  drawText((def.secret ? '' : def.id + ' ') + def.name, VW / 2, 52, '#ffd84a', { align: 'center' });
+  drawText(fmtTime(R.t), VW / 2, 70, '#fff4e0', { scale: 3, align: 'center', outline: K });
+  if (R.rec) {
+    if ((G.frame >> 3) % 4) drawText('YENİ REKOR!', VW / 2, 104, (G.frame >> 2) % 2 ? '#ffd84a' : '#ff9a3a', { scale: 2, align: 'center', outline: K });
+    for (let i = 0; i < 6; i++) { // twinkles around the record text
+      const ph = (G.frame + i * 11) % 40, n = ph < 20 ? [0, 1, 2, 3, 2, 1][ph >> 2] || 0 : 0;
+      if (!n) continue;
+      const sx = Math.round(VW / 2 + (i % 2 ? 1 : -1) * (74 + hash(i, 3) * 14)), sy = Math.round(100 + hash(i, 4) * 20);
+      ctx.fillStyle = '#fff4a0'; ctx.fillRect(sx - n, sy, n * 2 + 1, 1); ctx.fillRect(sx, sy - n, 1, n * 2 + 1);
+    }
+    if (R.prev) drawText('ESKİ REKOR ' + fmtTime(R.prev), VW / 2, 130, '#a89cc0', { align: 'center' });
+  } else {
+    drawText('REKOR ' + fmtTime(best), VW / 2, 108, '#6af0d8', { align: 'center' });
+    drawText('+' + fmtTime(R.t - best).replace(/^00:/, ''), VW / 2, 122, '#ff8a7a', { align: 'center' });
+  }
+  drawText('DENEME ' + R.tries + '   ALTIN ' + G.coins, VW / 2, 150, '#c8c0d8', { align: 'center' });
+  taButtons().forEach((b, i) => {
+    const sel = i === G.rsel;
+    ctx.fillStyle = K; ctx.fillRect(b.x - 1, b.y - 1, b.w + 2, b.h + 2);
+    ctx.fillStyle = sel ? '#ffd84a' : '#5a4a7a'; ctx.fillRect(b.x, b.y, b.w, b.h);
+    ctx.fillStyle = sel ? '#e4572e' : '#3a2e5a'; ctx.fillRect(b.x + 1, b.y + 1, b.w - 2, b.h - 2);
+    ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.fillRect(b.x + 1, b.y + 1, b.w - 2, 2);
+    drawText(b.label, b.x + b.w / 2, b.y + 8, sel ? '#fff4e0' : '#e8e0f0', { align: 'center', shadow: K });
+  });
+  drawText(HAS_TOUCH ? 'A TEKRAR   B MENÜ' : 'Z TEKRAR   X MENÜ', VW / 2, 218, '#8a8698', { align: 'center', shadow: K });
+}
+// ---------- the secret level's ending: credits under the sea ----------
+const SEA_CREDITS = ['★ TEBRİKLER! ★', '', 'MERCAN DENİZİ KEŞFEDİLDİ', '', 'SÜPER BIYIK', '', 'KAHRAMAN', 'BIYIK', '', 'PRENSES', 'LALE', '', 'KÖTÜ ADAM', 'EJDER KRAL', '',
+  'DENİZ DOSTLARI', 'BALON BALIĞI, DENİZANASI', 'VE RENGARENK BALIKLAR', '', 'GRAFİKLER', 'PİKSEL PİKSEL KODLA ÇİZİLDİ', '', 'MÜZİK VE SESLER', 'WEB AUDIO İLE SENTEZLENDİ', '',
+  'OYNADIĞIN İÇİN', 'TEŞEKKÜRLER!', '', '', 'SON'];
+const SEA_TOP = 30, SEA_BOT = 162;
+const seaScroll = () => (SEA_CREDITS.length - 1) * 14 + (SEA_BOT + 4) - (SEA_TOP + SEA_BOT) / 2; // scroll until "SON" sits mid-window
+function updateSeaEnd() {
+  G.stateT++;
+  if (G.stateT % 10 === 0) bubble(rnd(10, VW - 10), VH - 30);
+  updateParts();
+  if ((G.stateT > 150 && (input.aP || input.startP || G.tap)) || G.stateT > 30 + seaScroll() / 0.4 + 240) wipeOut(toTitle);
+}
+function renderSeaEnd() {
+  const camx = G.frame * 0.5;
+  drawParallax('sea', camx);
+  const TS = TILES.sea, off = Math.round(camx) % 16;
+  for (let x = -off; x < VW + 16; x += 16) { ctx.drawImage(TS.gtop, x, 208); ctx.drawImage(TS.gfill, x, 224); }
+  const DS = DECOR.sea, span = VW + 80;
+  for (const [k, x0] of [['coral0', 20], ['fan', 130], ['coral1', 230], ['anemone', 300], ['coral2', 380]]) { const img = DS[k], x = ((x0 - camx) % span + span) % span - 40; D(img, x, 209 - img.height); }
+  // creatures crossing the band below the credits
+  for (let i = 0; i < 3; i++) { const x = ((VW + 40) - (G.frame * (0.5 + i * 0.15) + i * 110) % (VW + 80)), y = 172 + i * 11 + Math.sin(G.frame / 20 + i) * 3; D(ART.fish[i % 2].swim[(G.frame >> 3) % 2][0], x, y); }
+  D(ART.jelly.fr[(G.frame >> 5) % 2], VW - 30, 40 + Math.sin(G.frame / 40) * 10);
+  D(ART.puffer.swim[(G.frame >> 3) % 2][0], VW - 56, 184 + Math.sin(G.frame / 30) * 4);
+  // the hero (and the princess) swimming
+  const set = P.size === 2 ? ART.fire : ART.hero, hy = 188 + Math.round(Math.sin(G.frame / 24) * 3);
+  D(set.b_jump[0], 30, hy - 22);
+  D(ART.princess, 50, hy - 20 + Math.round(Math.sin(G.frame / 24 + 1) * 2));
+  drawParts();
+  drawSea(camx);
+  // scrolling credits
+  const top = SEA_TOP, bottom = SEA_BOT;
+  drawText('MERCAN DENİZİ', VW / 2, 10, '#ffd84a', { scale: 2, align: 'center', outline: K });
+  ctx.save(); ctx.beginPath(); ctx.rect(0, top, VW, bottom - top); ctx.clip();
+  const y0 = bottom + 4 - clamp((G.stateT - 30) * 0.4, 0, seaScroll());
+  SEA_CREDITS.forEach((s, i) => { const y = y0 + i * 14; if (y > top - 10 && y < bottom + 2 && s) drawText(s, VW / 2, y, s === 'SON' || i === 0 ? '#ffd84a' : i % 3 === 0 ? '#c8ecff' : '#fff4e0', { align: 'center', shadow: K }); });
+  ctx.restore();
+  drawText('SKOR ' + String(G.score).padStart(6, '0'), VW / 2, 228, '#fff4e0', { align: 'center', shadow: K });
+  if (G.stateT > 150 && (G.frame >> 4) % 2) drawText('ANA MENÜ İÇİN DOKUN', VW / 2, 214, '#ffd84a', { align: 'center', shadow: K });
 }
 function renderGameOver() {
   ctx.fillStyle = '#0b0714'; ctx.fillRect(0, 0, VW, VH);
@@ -3194,6 +3808,8 @@ function render() {
     case 'play': case 'dying': renderWorld(); break;
     case 'gameover': renderGameOver(); break;
     case 'ending': renderEnding(); break;
+    case 'taresult': renderWorld(); renderTAResult(); break;
+    case 'seaend': renderSeaEnd(); break;
   }
   if (G.paused) renderPause();
   if (G.wipe) drawWipe();
@@ -3331,14 +3947,20 @@ function updateTitle() {
   G._pl = input.left; G._pr = input.right;
   if (L) { G.sel = (G.sel + G.unlocked - 1) % G.unlocked; SND.play('select'); }
   if (R) { G.sel = (G.sel + 1) % G.unlocked; SND.play('select'); }
+  const Dn = input.down && !G._pd; G._pd = input.down;
+  if (Dn || input.bP || padTaps.down || padTaps.b) toggleMode();
   let go = input.aP || input.startP;
+  const mt = modeToggle();
+  if (G.tap && !G.tap.pad && G.tap.x >= mt.x - 4 && G.tap.x <= mt.x + mt.w + 4 && G.tap.y >= mt.y - 5 && G.tap.y <= mt.y + mt.h + 5) {
+    toggleMode(G.tap.x >= mt.x + mt.split); G.tap = null;
+  }
   if (G.tap && !G.tap.pad) {
     const t = G.tap; let hit = -1;
     titleCards().forEach((c, i) => { if (t.x >= c.x - 4 && t.x <= c.x + c.w + 4 && t.y >= c.y - 4 && t.y <= c.y + c.h + 4) hit = i; });
     if (hit >= 0) { if (hit < G.unlocked) { G.sel = hit; go = true; } else SND.play('bump'); }
     else go = true;
   }
-  if (go && G.stateT > 20) { SND.init(); SND.play('select'); const sel = G.sel; wipeOut(() => newGame(sel)); }
+  if (go && G.stateT > 20) { SND.init(); SND.play('select'); const sel = G.sel, ta = G.taMode; wipeOut(() => ta ? startTimeAttack(sel) : newGame(sel)); }
 }
 function tick() {
   pollInput();
@@ -3362,6 +3984,8 @@ function tick() {
     case 'dying': updateDying(); updateParts(); break;
     case 'gameover': if (--G.stateT <= 0 || (G.stateT < 200 && (input.aP || G.tap || input.startP))) wipeOut(toTitle); break;
     case 'ending': updateEnding(); break;
+    case 'taresult': updateTAResult(); break;
+    case 'seaend': updateSeaEnd(); break;
   }
   if (G.wipe) updWipe();
   G.tap = null;
@@ -3501,6 +4125,7 @@ function loop(now) {
 }
 requestAnimationFrame(loop);
 window.__SB = { G, P, input, get area() { return area; }, LEVELS, beginPlay, newGame, tick, render, pauseItems, HAPTIC };
+Object.assign(window.__SB, { titleCards, modeToggle, taButtons, startTimeAttack, fmtTime, SWIM, SONGS, MAIN_LEVELS });
 })();
 </script>
 </body>

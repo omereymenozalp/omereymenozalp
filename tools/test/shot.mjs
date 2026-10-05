@@ -11,8 +11,9 @@ page.on('console', m => { if (m.type() === 'error') errs.push('CONSOLE ' + m.tex
 await page.goto(url);
 await page.waitForTimeout(800);
 await page.screenshot({ path: `${OUT}/title.png` });
-for (let i = 0; i < 6; i++) {
-  await page.evaluate(i => { const S = window.__SB; S.G.unlocked = 6; S.newGame(i); for (let k = 0; k < 160; k++) S.tick(); }, i);
+const nLevels = await page.evaluate(() => window.__SB.LEVELS.length); // includes the secret sea level
+for (let i = 0; i < nLevels; i++) {
+  await page.evaluate(i => { const S = window.__SB; S.G.unlocked = S.LEVELS.length; S.newGame(i); for (let k = 0; k < 160; k++) S.tick(); }, i);
   // run right for a while with jumping
   await page.evaluate(() => { const S = window.__SB; S.input.keys.right = 1; for (let k = 0; k < 90; k++) { S.input.keys.a = (k % 40) < 20 ? 1 : 0; S.tick(); } S.input.keys = {}; });
   await page.waitForTimeout(100);
