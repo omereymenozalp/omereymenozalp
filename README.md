@@ -49,9 +49,10 @@ Güçlendirmeler: büyüme mantarı, ateş çiçeği, yıldız (dokunulmazlık) 
 
 ## Oyun modları
 
-Başlık ekranındaki **NORMAL | ZAMANA KARŞI** anahtarına dokunarak (ya da ▼ veya B ile) mod değiştirilir.
+Başlık ekranındaki **NORMAL | ZAMANA KARŞI** anahtarına dokunarak (ya da ▼ ile) mod değiştirilir. Hemen solundaki **KOLAY | NORMAL** anahtarı zorluğu seçer (dokunarak ya da B / X ile); seçim tarayıcıda saklanır.
 
 - **Normal:** klasik macera; 3 can, geri sayan süre, bölümden bölüme ilerleme.
+- **Kolay zorluk** (yalnızca normal modda; zamana karşı her zaman NORMAL kurallarla oynanır): 5 can, her bölümde +100 süre, büyükken ölürsen büyük (ateşsiz) geri dönersin, her doğuşta 1 saniyelik yıldız gibi koruma, ortadakine ek olarak yolun yaklaşık 1/4 ve 3/4'ünde iki kontrol noktası daha, ve her canda bir kez: çukura düşünce bir baloncuk seni son sağlam zemine geri taşır (lav ve batan kumda değil). Göstergede küçük yeşil **K** işareti ve bölüm girişinde **KOLAY** yazısı görünür.
 - **Zamana Karşı:** açılmış bölümlerden biri seçilip tek başına oynanır. Göstergede geri sayım yerine salise hassasiyetinde kronometre (ör. 01:23.45) çalışır. Can kaybı ve oyun sonu yoktur: ölünce bölüm hemen baştan başlar. Bayrağa (kalede baltaya) ulaşınca sonuç ekranı çıkar; önceki rekor geçildiyse **YENİ REKOR!** yazar. Her bölümün en iyi süresi tarayıcıda saklanır ve bu modda başlık kartlarında görünür. Bu moddaki skorlar en yüksek skora sayılmaz.
 
 ## Geliştirme
@@ -66,6 +67,7 @@ node tools/test/pause.mjs   # duraklatma menüsü + AYARLAR (tuş boyutu/saydaml
 node tools/test/fireball.mjs # ateş topu 2-8 kare uzaktaki yer düşmanlarını vuruyor mu
 node tools/test/sea.mjs     # gizli deniz bölümü: yüzme fiziği, deniz canlıları, kilit, baştan sona yüzen bot
 node tools/test/timeattack.mjs  # zamana karşı: mod anahtarı, kronometre, anında yeniden başlama, rekor kaydı
+node tools/test/difficulty.mjs  # KOLAY/NORMAL: anahtar (dokunarak, iki yönde), kayıt, can/süre, çukur baloncuğu, ek kontrol noktaları
 OUT=/tmp node tools/test/shot.mjs  # ekran görüntüleri
 ```
 
