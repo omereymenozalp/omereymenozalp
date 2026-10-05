@@ -34,8 +34,12 @@ for (const [w, h, name] of [[844, 390, 'land'], [390, 844, 'portrait']]) {
     await page.waitForTimeout(80);
   };
   const pauseBtn = async () => { const b = await page.locator('#bPause').boundingBox(); await page.touchscreen.tap(b.x + b.width / 2, b.y + b.height / 2); await page.waitForTimeout(80); };
+  await ev(() => { window.__SB.G.score = 4321; });
   await pauseBtn();
   check('top pause button opens menu', (await st()).paused);
+  check('pausing saves the high score mid-run', (await ev(() => localStorage.getItem('superbiyik.best'))) === '4321');
+  await ev(() => { window.__SB.G.score = 5000; document.dispatchEvent(new Event('visibilitychange')); window.dispatchEvent(new Event('pagehide')); });
+  check('pagehide saves the high score', (await ev(() => localStorage.getItem('superbiyik.best'))) === '5000');
   await page.screenshot({ path: `${OUT}/${name}_pause.png` });
   // SES
   let s0 = await st();
@@ -45,6 +49,9 @@ for (const [w, h, name] of [[844, 390, 'land'], [390, 844, 'portrait']]) {
   await page.screenshot({ path: `${OUT}/${name}_pause_sound.png` });
   await tapItem('sound');
   check('SES toggles back', (await st()).muted === s0.muted);
+  // AYARLAR page
+  await tapItem('settings');
+  check('AYARLAR opens the settings page', (await ev(() => window.__SB.G.ppage)) === 1 && (await st()).paused);
   // TITRESIM
   s0 = await st();
   await tapItem('vib');
@@ -53,6 +60,45 @@ for (const [w, h, name] of [[844, 390, 'land'], [390, 844, 'portrait']]) {
   check('TİTREŞİM toggles + persists', s1.vib === !s0.vib && stored === String(s1.vib), `${s0.vib} -> ${s1.vib} stored=${stored}`);
   await tapItem('vib');
   check('TİTREŞİM back on', (await st()).vib === true);
+  // control size / transparency / pixel scale: cycle each by touch and watch the pad / canvas follow
+  const look = () => ev(() => {
+    const a = document.querySelector('[data-k="a"]'), r = a.getBoundingClientRect(), c = document.getElementById('game').getBoundingClientRect();
+    return { aw: Math.round(r.width), abg: getComputedStyle(a).backgroundColor, cw: c.width, ch: c.height, opt: { ...window.__SB.OPT }, pix: window.__SB.pixMode() };
+  });
+  const rowsH = await ev(() => window.__SB.pauseItems().map(i => i.h));
+  const scaleNow = (await look()).ch / 240;
+  check('settings rows are >= 36 CSS px tall', rowsH.every(h => h * scaleNow >= 36 || h === 29), `rows=${rowsH[0]}px x${scaleNow.toFixed(2)} = ${(rowsH[0] * scaleNow).toFixed(1)} css px`);
+  const L0 = await look();
+  check('defaults: ORTA size, ORTA transparency', L0.opt.padSize === 'm' && L0.opt.padAlpha === 'm', JSON.stringify(L0.opt) + ' auto pixel=' + L0.pix);
+  const sizes = [];
+  for (let i = 0; i < 3; i++) { await tapItem('padsize'); sizes.push((await look()).opt.padSize + ':' + (await look()).aw); }
+  check('TUŞ BOYUTU cycles BÜYÜK -> KÜÇÜK -> ORTA and resizes A', sizes.join(' ') === `l:${sizes[0].split(':')[1]} s:${sizes[1].split(':')[1]} m:${L0.aw}` && +sizes[0].split(':')[1] > L0.aw && +sizes[1].split(':')[1] < L0.aw, sizes.join(' ') + ' (orta ' + L0.aw + ')');
+  await page.screenshot({ path: `${OUT}/${name}_settings.png` });
+  const alphas = [];
+  for (let i = 0; i < 3; i++) { await tapItem('padalpha'); alphas.push((await look()).opt.padAlpha + '=' + (await look()).abg); }
+  check('TUŞ SAYDAMLIĞI cycles and changes button alpha', alphas.length === 3 && new Set(alphas.map(a => a.split('=')[1])).size === 3 && alphas[2].startsWith('m='), alphas.join('  '));
+  const p0 = L0.pix;
+  await tapItem('pixel');
+  const L1 = await look();
+  const integer = L1.ch % 240 === 0;
+  check('PİKSEL ÖLÇEĞİ toggles', L1.pix !== p0 && (L1.pix === 'tam' ? integer : true), `${p0} -> ${L1.pix} canvas ${L1.cw}x${L1.ch}`);
+  // leave non-default values set, then reload and check they stuck
+  await tapItem('padsize'); await tapItem('padalpha'); // -> BÜYÜK, ÇOK
+  const before = await look();
+  await page.reload(); await page.waitForTimeout(500);
+  const after = await look();
+  check('settings persist across reload', JSON.stringify(after.opt) === JSON.stringify(before.opt) && after.aw === before.aw && after.cw === before.cw && after.abg === before.abg, JSON.stringify(before.opt) + ' -> ' + JSON.stringify(after.opt) + ` a=${before.aw}/${after.aw} cw=${before.cw}/${after.cw}`);
+  // back into a level and restore defaults through the menu (B on the pad leaves AYARLAR, then resumes)
+  await ev(() => { const S = window.__SB; S.newGame(0); for (let n = 0; S.G.state !== 'play' && n < 400; n++) S.tick(); for (let i = 0; i < 30; i++) S.tick(); });
+  await pauseBtn(); await tapItem('settings');
+  await tapItem('padsize'); await tapItem('padsize'); await tapItem('padalpha'); await tapItem('padalpha');
+  if ((await look()).pix !== p0) await tapItem('pixel');
+  const restored = await look();
+  check('restored to ORTA/ORTA', restored.opt.padSize === 'm' && restored.opt.padAlpha === 'm' && restored.pix === p0, JSON.stringify(restored.opt) + ' ' + restored.pix);
+  const padB = async () => { const b = await page.locator('[data-k="b"]').boundingBox(); await page.touchscreen.tap(b.x + b.width / 2, b.y + b.height / 2); await page.waitForTimeout(80); };
+  await padB();
+  const back = await ev(() => ({ pg: window.__SB.G.ppage, paused: window.__SB.G.paused, sel: window.__SB.G.psel }));
+  check('pad B leaves AYARLAR (back on main page, still paused)', back.pg === 0 && back.paused && back.sel === 3, JSON.stringify(back));
   // pad navigation: down moves, A activates (DEVAM ET after wrapping around)
   const pad = async k => { const b = await page.locator(`[data-k="${k}"]`).boundingBox(); await page.touchscreen.tap(b.x + b.width / 2, b.y + b.height / 2); await page.waitForTimeout(80); };
   await ev(() => { window.__SB.G.psel = 0; });
@@ -100,6 +146,25 @@ for (const [w, h, name] of [[844, 390, 'land'], [390, 844, 'portrait']]) {
   await page.waitForTimeout(650);
   s1 = await st();
   check('ANA MENÜ -> title', s1.state === 'title' && !s1.paused, JSON.stringify(s1));
+  // screenshot matrix: every control size x both pixel-scale modes, in play (with a held A to show the pressed state) and on AYARLAR
+  await ev(() => { const S = window.__SB; S.newGame(0); for (let n = 0; S.G.state !== 'play' && n < 400; n++) S.tick(); S.input.keys.right = 1; for (let i = 0; i < 70; i++) S.tick(); S.input.keys = {}; });
+  for (const pix of ['uydur', 'tam']) for (const size of ['s', 'm', 'l']) {
+    const geo = await ev(([size, pix]) => {
+      const S = window.__SB; S.OPT.padSize = size; S.OPT.pixel = pix; S.layout(); S.render();
+      const c = document.getElementById('game').getBoundingClientRect();
+      return { cw: c.width, ch: c.height, left: c.left, top: c.top, vw: document.getElementById('game').width };
+    }, [size, pix]);
+    const inView = geo.left >= 0 && geo.top >= 0 && geo.left + geo.cw <= w + 0.5 && geo.top + geo.ch <= h + 0.5;
+    check(`layout ${size}/${pix} fits`, inView && (pix === 'uydur' || geo.ch % 240 === 0), JSON.stringify(geo));
+    await page.screenshot({ path: `${OUT}/${name}_ctl_${size}_${pix}.png` });
+  }
+  for (const pix of ['uydur', 'tam']) {
+    await ev(pix => { const S = window.__SB; S.OPT.padSize = 'm'; S.OPT.pixel = pix; S.layout(); }, pix);
+    await pauseBtn(); await tapItem('settings');
+    await ev(() => window.__SB.render());
+    await page.screenshot({ path: `${OUT}/${name}_settings_${pix}.png` });
+    await page.keyboard.press('Escape'); await page.keyboard.press('Escape'); await page.waitForTimeout(60);
+  }
   check('no page errors', errs.length === 0, errs.join(' | '));
   await ctx.close();
 }
