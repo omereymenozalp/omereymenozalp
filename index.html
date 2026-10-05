@@ -1454,11 +1454,11 @@ const LEVELS = [
       b.tree(24, 7, 4).e('kestane', 26, 6);
       b.tree(31, 11, 6).e('beetle', 34, 10);
       b.tree(40, 8, 5).coins(41, 5, 3);
-      b.plat(48, 9, { w: 3, axis: 'x', dist: 40, period: 200 });
-      b.tree(56, 10, 4);
-      b.tree(62, 6, 6).e('beetle', 65, 5);
+      b.plat(48, 9, { w: 3, axis: 'x', dist: 32, period: 200 });
+      b.tree(54, 10, 5);
+      b.tree(62, 7, 6).e('beetle', 65, 6);
       b.e('bee', 70, 7);
-      b.tree(74, 11, 8).row(76, 7, 'B?B');
+      b.tree(72, 11, 10).row(76, 7, 'B?B');
       b.e('kestane', 79, 10);
       b.tree(86, 8, 4);
       b.fall(92, 9).fall(96, 8).fall(100, 9);
@@ -1467,10 +1467,10 @@ const LEVELS = [
       b.plat(113, 8, { w: 3, axis: 'y', dist: 36, period: 200 });
       b.tree(119, 7, 5).row(121, 3, 'M');
       b.e('bee', 124, 5);
-      b.tree(127, 11, 4);
-      b.plat(133, 8, { w: 3, axis: 'x', dist: 48, period: 240 });
-      b.tree(141, 9, 6).e('kestane', 143, 8).e('kestane', 145, 8);
-      b.row(150, 6, 'cccc').coins(150, 5, 4);
+      b.tree(125, 11, 7);
+      b.plat(133, 8, { w: 3, axis: 'x', dist: 40, period: 240 });
+      b.tree(140, 9, 7).e('kestane', 143, 8).e('kestane', 145, 8);
+      b.row(149, 6, 'ccccc').coins(149, 5, 5);
       b.tree(156, 10, 6); b.e('bee', 160, 7);
       b.tree(164, 8, 4).e('spring', 165, 7);
       b.coins(164, 2, 4);
@@ -1593,7 +1593,7 @@ function moveBody(e, isPlayer) {
   e.y += e.vy;
   const l = Math.floor(e.x / 16), r = Math.floor((e.x + e.w - 1) / 16);
   if (e.vy > 0) {
-    const ty = Math.floor((e.y + e.h - 1) / 16);
+    const ty = Math.floor((e.y + e.h - 0.01) / 16);
     for (let tx = l; tx <= r; tx++) {
       const t = tileAt(area, tx, ty);
       if (SOLID_ID[t] || (t === T.SEMI && prevBottom <= ty * 16 + 0.5)) { e.y = ty * 16 - e.h; e.vy = 0; res.ground = true; break; }
@@ -1764,9 +1764,9 @@ function playerControl() {
       if (G.frame % 4 === 0) dust(P.x + P.w / 2, P.y + P.h);
     } else {
       P.dir = ax;
-      P.vx += ax * (P.onGround ? (run ? 0.1 : 0.075) : 0.07);
+      if (P.vx * ax < max) P.vx = ax * Math.min(P.vx * ax + (P.onGround ? (run ? 0.1 : 0.075) : 0.07), max);
+      else P.vx = approach(P.vx, ax * max, P.onGround ? 0.12 : 0.03);
     }
-    if (Math.abs(P.vx) > max) P.vx = approach(P.vx, ax * max, P.onGround ? 0.12 : 0.03);
   } else P.vx = approach(P.vx, 0, P.onGround ? (P.ducking ? 0.06 : 0.09) : 0.025);
   // jump (buffered + coyote time for touch screens)
   if (I.aP) P.jbuf = 7; else if (P.jbuf > 0) P.jbuf--;
