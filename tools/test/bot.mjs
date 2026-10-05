@@ -20,7 +20,8 @@ await page.addInitScript(() => {
 });
 await page.goto(new URL('../../index.html', import.meta.url).href);
 const ONLY = process.env.LV ? process.env.LV.split(',').map(Number) : null;
-const nLevels = await page.evaluate(() => window.__SB.LEVELS.length);
+// the secret underwater level needs swimming; it has its own playthrough in sea.mjs
+const nLevels = await page.evaluate(() => window.__SB.MAIN_LEVELS || window.__SB.LEVELS.length);
 let allDone = true;
 for (let lv = 0; lv < nLevels; lv++) {
   if (ONLY && !ONLY.includes(lv)) continue;

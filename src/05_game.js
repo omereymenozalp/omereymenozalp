@@ -21,8 +21,9 @@ function initArt() {
     spring: makeSpring(), castle: makeCastle(), pole: makeFlagPole(), flag: makeFlag(), torch: makeTorch(),
     hill: makeHill(80, 36),
     penguin: makePenguin(), scorpion: makeScorpion(), tumble: makeTumbleweed(), icicle: makeIcicle(), sandslab: makeSandSlab(),
+    puffer: makePuffer(), jelly: makeJelly(), fish: [makeFish('#ff6a4a', '#b8301a', '#ffc8a0'), makeFish('#4ab8f0', '#1a6aa8', '#c8f0ff')],
   };
-  for (const th of ['over', 'cave', 'sky', 'castle', 'ice', 'desert']) {
+  for (const th of ['over', 'cave', 'sky', 'castle', 'ice', 'desert', 'sea', 'beach']) {
     TILES[th] = tileArt(th);
     LAYERS[th] = makeLayers(th);
     const br = THEMES[th].brick;
@@ -35,6 +36,12 @@ function initArt() {
   }
   Object.assign(DECOR.ice, { pine: makePine(), snowman: makeSnowman() });
   Object.assign(DECOR.desert, { cactus0: makeCactus(30, 2), cactus1: makeCactus(21, 1), rock: makeRock(), pyrwall: makePyrWall() });
+  const seaBits = { shell: makeShell(), starfish: makeStarfish(), arrow: makeArrowDown() };
+  Object.assign(DECOR.sea, seaBits, {
+    coral0: makeCoral(3, ['#ff7a9a', '#b83a5a', '#ffd0dc']), coral1: makeCoral(7, ['#ff9a4a', '#b8582a', '#ffe0a8']), coral2: makeCoral(12, ['#ffd84a', '#b88a1a', '#fff4b0']),
+    fan: makeFanCoral(), anemone: makeAnemone(), rock: makeSeaRock(), kelpL: makeKelpLeaf(false), kelpR: makeKelpLeaf(true),
+  });
+  Object.assign(DECOR.beach, seaBits, { palm: makePalm() });
 }
 
 // =====================================================================
@@ -157,6 +164,10 @@ function spawnEntity(s) {
     case 'tumble': return { ...base, x: x + 1, y: yb - 14, w: 14, h: 14, vx: -1.15, enemy: true, stomp: true, killable: true, bn: 0 };
     case 'icicle': return { ...base, x: x + 4, y: s.y * 16, w: 8, h: 15, st: 'hang' };
     case 'sinkplat': return { ...base, x, y: s.y * 16, by: s.y * 16, w: s.w * 16, h: 8, dx: 0, dy: 0, plat: true, keep: true, active: true };
+    // sea creatures: in water, touching them hurts; fireballs and the star kill them
+    case 'puffer': return { ...base, x: x + 2, y: s.y * 16 + 2, cx: x + 8, cy: s.y * 16 + 8, homeX: x + 8, baseY: s.y * 16 + 8, w: 12, h: 12, vx: -0.3, inf: 0, puff: 0, enemy: true, stomp: false, killable: true };
+    case 'jelly': return { ...base, x: x + 2, y: s.y * 16 - 2, floorY: s.y * 16 - 2, w: 12, h: 14, enemy: true, stomp: false, killable: true, pulse: 30 + ((s.x * 7) % 40) };
+    case 'fish': return { ...base, x: x + 1, y: s.y * 16 + 3, baseY: s.y * 16 + 3, w: 14, h: 10, vx: s.vx || -0.75, kind: s.x % 2, enemy: true, stomp: false, killable: true };
   }
   return null;
 }
@@ -272,7 +283,8 @@ function playerControl() {
   let ax = 0;
   if (I.left && !I.right) ax = -1; else if (I.right && !I.left) ax = 1;
   if (P.ducking && P.onGround) ax = 0;
-  const run = I.b, max = run ? 2.6 : 1.55;
+  // underwater: no running, slower top speed (a bit faster while swimming than while wading on the floor)
+  const W = !!area.water, run = I.b && !W, max = W ? (P.onGround ? 1.1 : 1.35) : run ? 2.6 : 1.55;
   P.skid = false;
   if (ax) {
     if (P.onGround && P.vx * ax < 0 && Math.abs(P.vx) > 0.6) {
@@ -287,13 +299,13 @@ function playerControl() {
   // jump (buffered + coyote time for touch screens)
   if (I.aP) P.jbuf = 7; else if (P.jbuf > 0) P.jbuf--;
   if (P.onGround) P.coyote = 6; else if (P.coyote > 0) P.coyote--;
-  if (P.jbuf > 0 && P.coyote > 0) {
+  if (!W && P.jbuf > 0 && P.coyote > 0) {
     P.vy = -(4.8 + Math.min(Math.abs(P.vx), 2.6) * 0.2);
     P.jumping = true; P.jbuf = 0; P.coyote = 0; P.onGround = false; P.onPlat = null;
     SND.play(P.size ? 'bigjump' : 'jump'); P.sq = -0.8;
   }
   if (!I.a) P.jumping = false;
-  P.vy = Math.min(P.vy + ((P.jumping && P.vy < 0) ? 0.18 : 0.55), 5.6);
+  P.vy = W ? swimVy(I) : Math.min(P.vy + ((P.jumping && P.vy < 0) ? 0.18 : 0.55), 5.6);
   // fire
   if (P.fireCD > 0) P.fireCD--;
   if (P.throwT > 0) P.throwT--;
@@ -308,6 +320,7 @@ function playerControl() {
   const res = moveBody(P, true);
   if (P.x < G.cam.x) { P.x = G.cam.x; if (P.vx < 0) P.vx = 0; }
   if (res.wall) P.vx = 0;
+  if (W && P.y < 6) { P.y = 6; if (P.vy < 0) P.vy = 0; } // the water surface
   P.onGround = res.ground;
   // platforms
   P.onPlat = null;
@@ -366,6 +379,21 @@ function playerControl() {
     if (P.star === 0) MUSIC.play(THEMES[area.theme].music, null, G.hurry ? 1.3 : 1);
   }
 }
+// swimming: A = one stroke upward (repeatable), otherwise a slow sink with a capped speed
+const SWIM = { stroke: -2.35, sink: 0.07, maxSink: 1.1 };
+function swimVy(I) {
+  P.jumping = false; P.jbuf = 0; P.coyote = 0;
+  if (P.swimT > 0) P.swimT--;
+  if (!P.onGround) P.anim += P.swimT > 0 ? 0.2 : 0.05;
+  if (G.frame % 72 === 0) bubble(P.x + P.w / 2 + P.dir * 5, P.y + 3);
+  if (I.aP) {
+    P.swimT = 16; P.onGround = false; P.onPlat = null;
+    SND.play('swim'); bubble(P.x + P.w / 2, P.y + P.h - 4); bubble(P.x + P.w / 2 - P.dir * 4, P.y + P.h - 2);
+    return SWIM.stroke;
+  }
+  return Math.min(P.vy + SWIM.sink, SWIM.maxSink);
+}
+function bubble(x, y) { G.parts.push({ k: 'bubble', x, y, t: 0, ph: Math.random() * 6, r: Math.random() < 0.3 ? 2 : 1 }); }
 function startFlag() {
   P.state = 'flag'; P.stateT = 0; P.vx = 0; P.vy = 0; P.onPlat = null; P.star = 0; setDuck(false);
   const fx = area.flag.x * 16;
@@ -475,6 +503,7 @@ function updateEnt(e) {
   if (!e.keep && e.x + e.w < G.cam.x - 80) { e.dead = true; return; }
   e.t++;
   if (e.dying) { e.vy += 0.3; e.y += e.vy; e.x += e.vx; if (e.y > VH + 32) e.dead = true; return; }
+  if (e.water) { waterFire(e); return; }
   switch (e.type) {
     case 'kestane': case 'spiky': {
       if (e.flat) { if (--e.flat <= 0) e.dead = true; return; }
@@ -614,6 +643,45 @@ function updateEnt(e) {
       if (on && G.frame % 5 === 0) G.parts.push({ k: 'spark', x: e.x + rnd(2, e.w - 2), y: e.y + e.h, t: 0, vx: 0, vy: 0.5, col: '#f0c878' });
       break;
     }
+    case 'puffer': {
+      // patrols around its home and puffs up into a big spiky ball while the hero is close
+      const near = P.state === 'play' && Math.abs(P.x + P.w / 2 - e.cx) < 46 && Math.abs(P.y + P.h / 2 - e.cy) < 40;
+      if (near) { if (e.puff <= 0) SND.play('puff'); e.puff = Math.max(e.puff, 50); }
+      else if (e.puff > 0) e.puff--;
+      e.inf = approach(e.inf, e.puff > 0 ? 1 : 0, 0.1);
+      if (e.inf < 0.5) {
+        e.cx += e.vx;
+        if (e.cx < e.homeX - 36) e.vx = Math.abs(e.vx); else if (e.cx > e.homeX + 36) e.vx = -Math.abs(e.vx);
+        else if (solidAt(Math.floor((e.cx + Math.sign(e.vx) * 9) / 16), Math.floor(e.cy / 16))) e.vx = -e.vx;
+      }
+      e.cy = e.baseY + Math.sin(e.t * 0.035) * 5;
+      const s = 12 + e.inf * 8; e.w = s; e.h = s; e.x = e.cx - s / 2; e.y = e.cy - s / 2;
+      playerHits(e);
+      break;
+    }
+    case 'jelly': {
+      // drifts down slowly; every so often it pulses upward, toward the hero when he is above it
+      if (e.vy < 0) e.vy *= 0.96;
+      e.vy = Math.min(e.vy + 0.015, 0.35); e.vx *= 0.985;
+      if (--e.pulse <= 0) {
+        const above = P.state === 'play' && P.y + P.h / 2 < e.y + 4 && Math.abs(P.x - e.x) < 120;
+        e.pulse = above ? 70 : 110;
+        e.vy = above ? -1.5 : -0.8;
+        if (above) e.vx = clamp((P.x - e.x) * 0.01, -0.5, 0.5);
+      }
+      moveBody(e);
+      if (e.y > e.floorY) { e.y = e.floorY; if (e.vy > 0) e.vy = 0; }
+      if (e.y < 8) { e.y = 8; if (e.vy < 0) e.vy = 0; }
+      playerHits(e);
+      break;
+    }
+    case 'fish': {
+      // swims in a straight line with a gentle wiggle; turns at rocks
+      e.x += e.vx; e.y = e.baseY + Math.sin(e.t * 0.07 + e.baseY) * 3;
+      if (solidAt(Math.floor((e.vx < 0 ? e.x : e.x + e.w) / 16), Math.floor((e.y + e.h / 2) / 16))) e.vx = -e.vx;
+      playerHits(e);
+      break;
+    }
     case 'item': updateItem(e); break;
     case 'fireball': {
       e.vy = Math.min(e.vy + 0.35, 4.5);
@@ -653,6 +721,16 @@ function fbStep(e, ox) {
   if (r < 1 || e.y + e.h - r * 16 > 16 || solidAt(tx, r - 1) || solidAt(back, r - 1)) return false;
   e.x = ox + e.vx; e.y = r * 16 - e.h; e.vy = -FB_BOUNCE;
   return true;
+}
+// fireballs keep working underwater: they shoot straight (no bounce), trail bubbles and fizzle out after a while
+function waterFire(e) {
+  e.x += e.vx; e.y += Math.sin(e.t * 0.3) * 0.4;
+  if (e.t % 6 === 0) bubble(e.x + 4, e.y + 2);
+  if (e.t > 75 || solidAt(Math.floor((e.x + 4) / 16), Math.floor((e.y + 4) / 16)) || e.x < G.cam.x - 16 || e.x > G.cam.x + VW + 16) { e.dead = true; puff(e.x, e.y); return; }
+  for (const o of area.ents) {
+    if (o.dead || o.dying || !o.enemy || !o.active || !o.killable || !overlap(e, o)) continue;
+    flipKill(o, Math.sign(e.vx)); addScore(200, o.x, o.y); SND.play('kick'); e.dead = true; puff(e.x, e.y); break;
+  }
 }
 function puff(x, y) { for (let i = 0; i < 4; i++) G.parts.push({ k: 'spark', x: x + 4, y: y + 4, t: 0, vx: rnd(-1, 1), vy: rnd(-1, 1), col: i % 2 ? '#ffd84a' : '#ff6a1a' }); }
 function updateItem(e) {
@@ -745,7 +823,7 @@ function updateSeq() {
 function startLevel(idx, fresh) {
   G.levelIdx = idx;
   if (fresh) { G.cp = false; }
-  G.state = 'intro'; G.stateT = 150;
+  G.state = 'intro'; G.stateT = G.ta ? 80 : 150;
   MUSIC.stop();
 }
 function beginPlay() {
@@ -763,7 +841,8 @@ function beginPlay() {
   if (G.level.checkpoint) G.level.cpY = (groundRowAt(G.level.checkpoint) + 1) * 16;
   // remove enemies that would be right on top of the spawn point
   for (const e of area.ents) if (e.enemy && e.x > P.x - 48 && e.x < P.x + 64 && e.type !== 'firebar' && e.type !== 'podoboo') e.dead = true;
-  G.state = 'play'; G.fade = 0; G.cam.look = 0; P.sq = 0;
+  G.state = 'play'; G.fade = 0; G.cam.look = 0; P.sq = 0; P.swimT = 0;
+  if (G.ta) { G.ta.t = 0; G.ta.after = 0; }
   MUSIC.play(THEMES[area.theme].music);
 }
 // lowest standable spot with two tiles of headroom (ignores ceilings and blocks floating above the floor)
@@ -776,7 +855,9 @@ function groundRowAt(tx) {
 }
 function nextLevel() {
   G.cp = false; saveBest(); // level cleared: bank the score so a closed tab can't lose it
-  if (G.levelIdx + 1 < LEVELS.length) {
+  if (G.ta) { taFinish(); return; }
+  if (LEVELS[G.levelIdx].secret) { toSeaEnding(); return; }
+  if (G.levelIdx + 1 < MAIN_LEVELS) {
     G.unlocked = Math.max(G.unlocked, G.levelIdx + 2); store.set('unlocked', G.unlocked);
     startLevel(G.levelIdx + 1, true);
   } else toEnding();
@@ -788,29 +869,64 @@ function toEnding() {
   MUSIC.play('title');
 }
 // cheap: only touches storage when the record actually moves (called at level clear, pause, tab hide, game end)
-function saveBest() { if (G.score > G.best) { G.best = G.score; store.set('best', G.best); } }
+function saveBest() { if (G.ta) return; if (G.score > G.best) { G.best = G.score; store.set('best', G.best); } } // time-attack runs never touch the normal high score
 function gameOver() {
   saveBest();
   G.state = 'gameover'; G.stateT = 260;
   MUSIC.play('gameover');
 }
+// the secret level's own ending: an underwater credits roll, then back to the title
+function toSeaEnding() {
+  saveBest();
+  G.state = 'seaend'; G.stateT = 0; G.parts = [];
+  MUSIC.play('sea');
+}
 function toTitle() {
+  if (G.ta) { G.ta = null; G.score = 0; } // time-attack runs never count towards the high score
   saveBest();
   G.state = 'title'; G.stateT = 0; G.parts = [];
   if (SND.ctx) MUSIC.play('title'); else MUSIC.stop();
 }
 function newGame(levelIdx) {
-  G.score = 0; G.coins = 0; G.lives = 3; P.size = 0; G.cp = false;
+  G.score = 0; G.coins = 0; G.lives = 3; P.size = 0; G.cp = false; G.ta = null;
   startLevel(levelIdx, true);
+}
+
+// ---------- time attack ("ZAMANA KARŞI") ----------
+// one unlocked level against a precise clock; dying restarts it instantly, best times per level live in store 'ta'
+G.taMode = store.get('tamode', false); G.taBest = store.get('ta', {}); G.ta = null;
+function fmtTime(f) {
+  const cs = Math.floor(f * 100 / 60), m = Math.floor(cs / 6000), s = Math.floor(cs / 100) % 60;
+  return String(Math.min(99, m)).padStart(2, '0') + ':' + String(s).padStart(2, '0') + '.' + String(cs % 100).padStart(2, '0');
+}
+function taBestOf(i) { return G.taBest[LEVELS[i].id] || 0; }
+function startTimeAttack(idx) {
+  G.ta = { lv: idx, t: 0, after: 0, tries: 1 };
+  G.score = 0; G.coins = 0; G.lives = 1; P.size = 0; G.cp = false;
+  startLevel(idx, true);
+}
+function taRestart() { G.ta.tries++; G.score = 0; G.coins = 0; P.size = 0; G.cp = false; beginPlay(); }
+function taTick() {
+  if (!G.timeStop) { G.ta.t++; return; }
+  // the clock stopped at the flag / axe: let the moment play a little, then show the result
+  if (++G.ta.after === (G.seq && G.seq.k === 'bridge' ? 170 : 100)) wipeOut(taFinish);
+}
+function taFinish() {
+  const id = LEVELS[G.ta.lv].id, prev = G.taBest[id] || 0, t = G.ta.t;
+  G.ta.prev = prev; G.ta.rec = !prev || t < prev;
+  if (G.ta.rec) { G.taBest[id] = t; store.set('ta', G.taBest); }
+  G.state = 'taresult'; G.stateT = 0; G.rsel = 0; G.parts = [];
+  if (MUSIC.name !== 'clear' && MUSIC.name !== 'castleclear') MUSIC.play('clear');
 }
 
 function updatePlay() {
   G.area_new = [];
+  if (G.ta) taTick();
   if (G.freeze > 0) {
     G.freeze--; if (P.transform > 0) P.transform--;
     return;
   }
-  if (!G.timeStop && P.state === 'play') {
+  if (!G.ta && !G.timeStop && P.state === 'play') {
     if (++G.timeAcc >= 24) {
       G.timeAcc = 0; G.time--;
       if (G.time === 100 && !G.hurry) { G.hurry = true; SND.play('hurry'); MUSIC.setSpeed(1.3); }
@@ -822,6 +938,7 @@ function updatePlay() {
   updatePlayerState();
   if (G.state !== 'play') return;
   for (const e of area.ents) if (!e.plat && !e.dead) updateEnt(e);
+  if (area.water) for (const n of G.area_new) if (n.type === 'fireball' && !n.water) { n.water = true; n.vx = Math.sign(n.vx) * 2.6; n.vy = 0; n.y = P.y + Math.min(6, P.h - 10); } // straight shot at chest height, not the knee-height land arc
   if (G.area_new.length) area.ents.push(...G.area_new);
   if (G.frame % 30 === 0) area.ents = area.ents.filter(e => !e.dead);
   updateSeq();
@@ -850,11 +967,18 @@ function updateParts() {
       case 'fw': p.x += p.vx; p.y += p.vy; p.vx *= 0.97; p.vy = p.vy * 0.97 + 0.03; if (p.t > 55) p.dead = 1; break;
       case 'star': p.x += p.vx; p.y += p.vy; p.vx *= 0.86; p.vy *= 0.86; if (p.t > 16) p.dead = 1; break;
       case 'twinkle': if (p.t > (p.big ? 10 : 14)) p.dead = 1; break;
+      case 'bubble': p.y -= 0.4 + p.r * 0.12; p.x += Math.sin(p.t * 0.15 + p.ph) * 0.3; if (p.t > 120 || p.y < 7) p.dead = 1; break;
     }
   }
   if (G.parts.length > 0) G.parts = G.parts.filter(p => !p.dead);
 }
 function updateDying() {
+  if (G.ta) { // time attack: no lives, no game over, just a quick restart of the level
+    G.stateT++;
+    if (G.stateT > 20) { P.vy = Math.min(P.vy + 0.25, 6); P.y += P.vy; }
+    if (G.stateT === 36) wipeOut(taRestart, 12);
+    return;
+  }
   G.stateT++;
   if (G.stateT === 170) wipeOut(null, 18);
   if (G.stateT > 28) { P.vy = Math.min(P.vy + 0.25, 6); P.y += P.vy; }

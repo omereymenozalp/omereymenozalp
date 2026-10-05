@@ -116,6 +116,7 @@ const FONT = {};
     '"': [0x0A, 0x0A, 0, 0, 0, 0, 0], '=': [0, 0, 0x1F, 0, 0x1F, 0, 0], '%': [0x19, 0x19, 0x02, 0x04, 0x08, 0x13, 0x13],
     '←': [0, 0x04, 0x08, 0x1F, 0x08, 0x04, 0], '→': [0, 0x04, 0x02, 0x1F, 0x02, 0x04, 0],
     '▶': [0x08, 0x0C, 0x0E, 0x0F, 0x0E, 0x0C, 0x08], '★': [0x04, 0x04, 0x1F, 0x0E, 0x0E, 0x1B, 0x11],
+    '∞': [0, 0, 0x0A, 0x15, 0x15, 0x0A, 0], '▼': [0, 0x1F, 0x1F, 0x0E, 0x0E, 0x04, 0],
   };
   for (const k in F) FONT[k] = g(F[k]);
   FONT['Ç'] = g(F.C, 0, 0x04); FONT['Ş'] = g(F.S, 0, 0x04);
@@ -261,6 +262,9 @@ const SFX = {
   checkpoint: (S, t) => { ['G5', 'B5', 'D6', 'G6'].forEach((x, i) => S.tone(nf(x), t + i * 0.07, 0.1, { duty: 0.125, vol: 0.12 })); },
   spring: (S, t) => S.tone(200, t, 0.25, { duty: 0.25, slide: 900, vol: 0.14, vib: true }),
   crack: (S, t) => { S.noiseHit(t, 0.06, { freq: 5000, vol: 0.07 }); S.tone(2600, t, 0.04, { duty: 0.125, vol: 0.05 }); },
+  swim: (S, t) => { S.tone(240, t, 0.13, { wave: 'sine', slide: 560, slideT: 0.11, vol: 0.16 }); S.noiseHit(t, 0.07, { freq: 1300, type: 'bandpass', vol: 0.05 }); },
+  puff: (S, t) => { S.tone(160, t, 0.22, { duty: 0.5, slide: 520, slideT: 0.2, vol: 0.12 }); S.noiseHit(t, 0.12, { freq: 700, type: 'lowpass', vol: 0.08 }); },
+  record: (S, t) => { ['C6', 'E6', 'G6', 'E6', 'G6', 'C7'].forEach((x, i) => S.tone(nf(x), t + i * 0.07, i === 5 ? 0.3 : 0.08, { duty: 0.25, vol: 0.12 })); },
   shatter: (S, t) => { S.noiseHit(t, 0.18, { freq: 4000, sweep: 9000, type: 'bandpass', vol: 0.18 }); [2093, 2637, 3136].forEach((f, i) => S.tone(f, t + i * 0.03, 0.06, { duty: 0.125, vol: 0.06 })); },
 };
 
@@ -344,6 +348,19 @@ const SONGS = {
              A2:3 A2:1 r:2 A3:2 A2:2 r:2 E3:2 A2:2 | D2:3 D2:1 r:2 D3:2 E2:2 r:2 B2:2 E2:2 | A2:3 A2:1 r:2 A3:2 D2:2 r:2 A2:2 D2:2 | E2:3 E2:1 r:2 E3:2 E2:4 B1:2 E2:2`,
       drum: `k:3 h:1 s:2 h:2 k:2 k:2 s:2 h:1 h:1 | k:3 h:1 s:2 h:2 k:2 k:2 s:2 h:1 h:1 | k:3 h:1 s:2 h:2 k:2 k:2 s:2 h:1 h:1 | k:3 h:1 s:2 h:2 k:2 k:2 s:2 h:1 h:1 |
              k:3 h:1 s:2 h:2 k:2 k:2 s:2 h:1 h:1 | k:3 h:1 s:2 h:2 k:2 k:2 s:2 h:1 h:1 | k:3 h:1 s:2 h:2 k:2 k:2 s:2 h:1 h:1 | k:2 s:1 s:1 k:2 s:2 k:2 s:1 s:1 s:2 s:2`
+    }
+  },
+  // MERCAN DENİZİ: a slow, swaying D-minor waltz-like tune for the secret underwater level
+  sea: {
+    bpm: 104, loop: true, tracks: {
+      lead: `A4:2 D5:2 F5:2 A5:4 G5:2 F5:2 E5:2 | F5:3 E5:1 D5:4 r:4 A4:4 | Bb4:2 D5:2 F5:2 Bb5:4 A5:2 G5:2 F5:2 | A5:6 G5:2 E5:8 |
+             G5:2 A5:2 Bb5:2 A5:2 G5:2 F5:2 E5:2 D5:2 | F5:4 E5:2 C5:2 D5:8 | Bb4:2 C5:2 D5:2 F5:2 E5:2 D5:2 C#5:2 E5:2 | D5:12 r:4`,
+      harm: `D4:2 F4:2 A4:2 D5:2 A4:2 F4:2 D4:2 F4:2 | C4:2 E4:2 A4:2 C5:2 A4:2 E4:2 C4:2 E4:2 | Bb3:2 D4:2 F4:2 Bb4:2 F4:2 D4:2 Bb3:2 D4:2 | A3:2 C#4:2 E4:2 A4:2 E4:2 C#4:2 A3:2 C#4:2 |
+             G3:2 Bb3:2 D4:2 G4:2 D4:2 Bb3:2 G3:2 Bb3:2 | F3:2 A3:2 D4:2 F4:2 D4:2 A3:2 F3:2 A3:2 | Bb3:2 D4:2 F4:2 D4:2 A3:2 C#4:2 E4:2 C#4:2 | D4:2 F4:2 A4:2 D5:2 A4:8`,
+      bass: `D2:4 A2:4 D3:4 A2:4 | A1:4 E2:4 A2:4 E2:4 | Bb1:4 F2:4 Bb2:4 F2:4 | A1:4 E2:4 A2:4 C#3:4 |
+             G1:4 D2:4 G2:4 D2:4 | D2:4 A2:4 D3:4 A2:4 | Bb1:4 F2:4 A1:4 E2:4 | D2:8 A1:4 D2:4`,
+      drum: `k:4 h:2 h:2 h:4 h:4 | k:4 h:2 h:2 h:4 h:4 | k:4 h:2 h:2 h:4 h:4 | k:4 h:2 h:2 s:4 h:4 |
+             k:4 h:2 h:2 h:4 h:4 | k:4 h:2 h:2 h:4 h:4 | k:4 h:2 h:2 h:4 h:4 | k:4 h:2 h:2 s:4 s:2 h:2`
     }
   },
   star: {

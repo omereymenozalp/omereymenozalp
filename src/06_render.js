@@ -68,6 +68,7 @@ function drawPlayer() {
   if (P.ducking) key = 'duck';
   else if (P.state === 'flag') key = 'w2';
   else if (P.state === 'pipeIn' || P.state === 'pipeOut') key = 'stand';
+  else if (area && area.water && !P.onGround && P.state === 'play') key = P.swimT > 8 ? 'jump' : ['w1', 'w2', 'w3', 'w2'][Math.floor(P.anim) % 4];
   else if (!P.onGround && P.state !== 'axe' && P.state !== 'meet') key = 'jump';
   else if (P.skid) key = 'skid';
   else if (Math.abs(P.vx) > 0.1 || P.state === 'walk' || P.state === 'walkP') key = ['w1', 'w2', 'w3', 'w2'][Math.floor(P.anim) % 4];
@@ -157,6 +158,42 @@ function drawEnt(e) {
       break;
     case 'icicle': D(ART.icicle, e.x - 4 + (e.st === 'shake' ? ((G.frame >> 1) % 2 ? 1 : -1) : 0), e.y); break;
     case 'sinkplat': D(ART.sandslab, e.x, e.y); break;
+    case 'puffer': {
+      const fl = (e.inf > 0.5 ? P.x + P.w / 2 > e.cx : e.vx > 0) ? 1 : 0;
+      if (e.dying) D(ART.puffer.dead, e.x - 2, e.y - 2);
+      else if (e.inf > 0.7) D(ART.puffer.big[fl], e.cx - 12, e.cy - 12);
+      else if (e.inf > 0.1) { const s = Math.round(16 + e.inf * 8); ctx.drawImage(ART.puffer.swim[0][fl], Math.round(e.cx - s / 2), Math.round(e.cy - s / 2), s, s); }
+      else D(ART.puffer.swim[(f >> 3) % 2][fl], e.cx - 8, e.cy - 8);
+      break;
+    }
+    case 'jelly': D(e.dying ? ART.jelly.dead : ART.jelly.fr[e.vy < -0.35 ? 1 : 0], e.x - 2, e.y - 1); break;
+    case 'fish': { const F = ART.fish[e.kind]; D(e.dying ? F.dead : F.swim[(f >> 3) % 2][e.vx < 0 ? 0 : 1], e.x - 1, e.y - 1); break; }
+  }
+}
+function drawKelp(d, set) {
+  for (let i = 0; i < d.n; i++) {
+    const sx = Math.round(d.x + Math.sin(G.frame * 0.035 + d.ph + i * 0.5) * i * 0.55), sy = d.y - (i + 1) * 6;
+    ctx.fillStyle = '#14502a'; ctx.fillRect(sx - 1, sy, 4, 7);
+    ctx.fillStyle = i % 3 ? '#2a9a4a' : '#3cb85a'; ctx.fillRect(sx, sy, 2, 7);
+    if (i > 0) D(i % 2 ? set.kelpL : set.kelpR, i % 2 ? sx - 6 : sx + 1, sy - 1);
+  }
+}
+// underwater: light rays from the surface, a shimmering surface line and drifting bubbles (all frame-driven)
+function drawSea(camx) {
+  for (let i = 0; i < 5; i++) {
+    const span = VW + 160, bx = ((i * 113 + 20 - camx * 0.25) % span + span) % span - 80;
+    const sw = Math.sin(G.frame * 0.012 + i * 1.7) * 12, w0 = 10 + (i % 2) * 8;
+    ctx.fillStyle = 'rgba(220,250,255,' + (0.055 + 0.025 * Math.sin(G.frame * 0.02 + i * 2)).toFixed(3) + ')';
+    for (let y = 0; y < VH; y += 2) { const k = y / VH; ctx.fillRect(Math.round(bx + (44 + sw) * k), y, Math.round(w0 + 26 * k), 2); }
+  }
+  ctx.fillStyle = 'rgba(255,255,255,.45)';
+  for (let x = 0; x < VW; x += 4) ctx.fillRect(x, 2 + Math.round(Math.sin((x + camx) * 0.07 + G.frame * 0.05) * 1.5), 4, 1);
+  for (let i = 0; i < 22; i++) {
+    const sp = 0.25 + hash(i, 3) * 0.45, y = VH + 10 - (hash(i, 4) * 270 + G.frame * sp) % 270;
+    const x = Math.round(((hash(i, 1) * (VW + 20) - camx * 0.6 + Math.sin(G.frame * 0.03 + i) * 4) % (VW + 20) + VW + 20) % (VW + 20) - 10), yy = Math.round(y);
+    ctx.fillStyle = 'rgba(230,250,255,.7)';
+    if (hash(i, 5) < 0.3) { ctx.fillRect(x - 1, yy - 2, 3, 1); ctx.fillRect(x - 1, yy + 2, 3, 1); ctx.fillRect(x - 2, yy - 1, 1, 3); ctx.fillRect(x + 2, yy - 1, 1, 3); ctx.fillRect(x - 1, yy - 1, 1, 1); }
+    else ctx.fillRect(x, yy, hash(i, 6) < 0.5 ? 2 : 1, hash(i, 6) < 0.5 ? 2 : 1);
   }
 }
 // falling snow / drifting sand in front of the ice & desert worlds (stateless, frame-driven)
@@ -185,11 +222,12 @@ function drawDecor(A, camx) {
   const set = DECOR[A.theme];
   for (const d of A.decor) {
     let img;
+    if (d.k === 'kelp') { if (d.x > camx - 40 && d.x < camx + VW + 40) drawKelp(d, set); continue; }
     if (d.k === 'torch') img = ART.torch[(G.frame >> 3) % 3];
     else img = set[d.k];
     if (!img) continue;
     if (d.x + img.width < camx - 8 || d.x > camx + VW + 8) continue;
-    D(img, d.x, d.y - img.height);
+    D(img, d.x, d.y - img.height + (d.k === 'arrow' ? Math.round(Math.sin(G.frame / 8) * 2) : 0));
   }
   if (A.castle) D(ART.castle, A.castle.x * 16, 13 * 16 - 80);
   if (A.flag) {
@@ -237,6 +275,13 @@ function drawParts(front) {
         break;
       }
       case 'dust': ctx.fillStyle = 'rgba(255,244,224,' + (1 - p.t / 16) + ')'; ctx.fillRect(Math.round(p.x - 2), Math.round(p.y - 3), 3, 3); break;
+      case 'bubble': {
+        const x = Math.round(p.x), y = Math.round(p.y);
+        ctx.fillStyle = 'rgba(235,252,255,.85)';
+        if (p.r > 1) { ctx.fillRect(x - 1, y - 2, 3, 1); ctx.fillRect(x - 1, y + 2, 3, 1); ctx.fillRect(x - 2, y - 1, 1, 3); ctx.fillRect(x + 2, y - 1, 1, 3); ctx.fillRect(x - 1, y - 1, 1, 1); }
+        else { ctx.fillRect(x, y - 1, 1, 3); ctx.fillRect(x - 1, y, 3, 1); }
+        break;
+      }
       case 'spark': case 'fw': ctx.fillStyle = p.col; ctx.fillRect(Math.round(p.x), Math.round(p.y), p.k === 'fw' ? 2 : 1 + (p.t < 8), p.k === 'fw' ? 2 : 1 + (p.t < 8)); break;
     }
   }
@@ -248,12 +293,17 @@ function drawHUD() {
   drawText(String(G.score).padStart(6, '0'), 8, 15, '#fff4e0', o);
   const cx = Math.round(VW * 0.2) + 10;
   ctx.drawImage(ART.heart, cx - 1, 5);
-  drawText('×' + G.lives, cx + 8, 5, '#fff4e0', o);
+  drawText('×' + (G.ta ? '∞' : G.lives), cx + 8, 5, '#fff4e0', o);
   ctx.drawImage(ART.mcoin, cx, 15);
   drawText('×' + String(G.coins).padStart(2, '0'), cx + 8, 15, '#ffd84a', o);
-  const wx = Math.round(VW * 0.7) - 6;
+  const wx = Math.round(VW * (G.ta ? 0.6 : 0.7)) - 6; // the stopwatch is wider than the countdown
   drawText('DÜNYA', wx, 5, '#fff4e0', o);
   drawText(G.level ? G.level.def.id : '1-1', wx + 6, 15, '#fff4e0', o);
+  if (G.ta) { // time attack: a precise stopwatch replaces the countdown
+    drawText('SÜRE', VW - 8, 5, '#6af0d8', { shadow: sh, align: 'right' });
+    drawText(fmtTime(G.ta.t), VW - 8, 15, G.timeStop && (G.frame >> 3) % 2 ? '#ffd84a' : '#fff4e0', { shadow: sh, align: 'right' });
+    return;
+  }
   drawText('SÜRE', VW - 8, 5, '#fff4e0', { shadow: sh, align: 'right' });
   drawText(String(Math.max(0, G.time)).padStart(3, '0'), VW - 8, 15, G.time <= 100 && (G.frame >> 4) % 2 ? '#ff6a5a' : '#fff4e0', { shadow: sh, align: 'right' });
 }
@@ -280,6 +330,7 @@ function renderWorld() {
   if (P.state !== 'pipeIn' && P.state !== 'pipeOut') drawPlayer();
   drawParts();
   ctx.restore();
+  if (A.water) drawSea(camx);
   drawWeather(A.theme, camx);
   drawHUD();
   if (G.msg) drawMessage();
@@ -301,17 +352,31 @@ function drawMessage() {
 }
 
 // ---------- screens ----------
-const LEVEL_TINT = { over: ['#5ec948', '#2a7a2a'], cave: ['#5a78e8', '#23264a'], sky: ['#ffc08a', '#e8708a'], ice: ['#a8dcf8', '#2a4a8a'], desert: ['#f0c060', '#a8541c'], castle: ['#e4372e', '#3a1620'] };
-const LEVEL_THEME = ['over', 'cave', 'sky', 'ice', 'desert', 'castle'];
-// one row of cards on wide screens, otherwise a grid of two rows (3 × 2 for six levels)
+const LEVEL_TINT = { over: ['#5ec948', '#2a7a2a'], cave: ['#5a78e8', '#23264a'], sky: ['#ffc08a', '#e8708a'], ice: ['#a8dcf8', '#2a4a8a'], desert: ['#f0c060', '#a8541c'], castle: ['#e4372e', '#3a1620'], sea: ['#5ad4f0', '#0c3a80'] };
+const LEVEL_THEME = ['over', 'cave', 'sky', 'ice', 'desert', 'castle', 'sea'];
+// one row of cards on wide screens, otherwise a grid of two rows (4 + 3 for seven levels, each row centred)
 function titleCards() {
   const n = LEVELS.length, gap = 8;
   if (VW >= 380) {
     const w = Math.min(60, Math.floor((VW - 24 - (n - 1) * gap) / n)), x0 = Math.round((VW - (n * w + (n - 1) * gap)) / 2);
-    return LEVELS.map((L, i) => ({ x: x0 + i * (w + gap), y: 104, w, h: 40 }));
+    return LEVELS.map((L, i) => ({ x: x0 + i * (w + gap), y: 108, w, h: 40 }));
   }
-  const cols = Math.ceil(n / 2), h = 26, w = Math.min(72, Math.floor((VW - 24 - (cols - 1) * gap) / cols)), x0 = Math.round((VW - (cols * w + (cols - 1) * gap)) / 2);
-  return LEVELS.map((L, i) => ({ x: x0 + (i % cols) * (w + gap), y: 97 + Math.floor(i / cols) * (h + 6), w, h }));
+  const cols = Math.ceil(n / 2), h = 26, w = Math.min(72, Math.floor((VW - 24 - (cols - 1) * gap) / cols));
+  return LEVELS.map((L, i) => {
+    const row = Math.floor(i / cols), inRow = row ? n - cols : cols, x0 = Math.round((VW - (inRow * w + (inRow - 1) * gap)) / 2);
+    return { x: x0 + (i % cols) * (w + gap), y: 106 + row * (h + 6), w, h };
+  });
+}
+// NORMAL | ZAMANA KARŞI mode switch between the logo and the cards (tap a side, or ▼ / B on the pad)
+function modeToggle() { const w = 144, split = 56; return { x: Math.round((VW - w) / 2), y: VW >= 380 ? 91 : 87, w, h: 13, split }; }
+function toggleMode(ta) {
+  G.taMode = ta === undefined ? !G.taMode : ta; store.set('tamode', G.taMode);
+  SND.init(); SND.play('select');
+}
+function cardTime(i) { const t = taBestOf(i); return t ? fmtTime(t).replace(/^0/, '') : '-:--.--'; }
+function drawPadlock(lx, ly) {
+  ctx.fillStyle = '#8a8698'; ctx.fillRect(lx + 1, ly - 4, 6, 2); ctx.fillRect(lx + 1, ly - 4, 2, 5); ctx.fillRect(lx + 5, ly - 4, 2, 5); ctx.fillRect(lx, ly, 8, 7);
+  ctx.fillStyle = '#3a3648'; ctx.fillRect(lx + 3, ly + 2, 2, 3);
 }
 function renderTitle() {
   const camx = G.frame * 0.6;
@@ -322,63 +387,181 @@ function renderTitle() {
   // bush scrolling
   const bush = DECOR.over.bush56, bx = ((-camx * 1) % (VW + 120) + VW + 120) % (VW + 120) - 60;
   D(bush, bx, 208 - bush.height);
-  const cards = titleCards(), grid = cards[cards.length - 1].y > cards[0].y;
-  const ty = grid ? [86, 162, 175, 222] : [92, 152, 166, 180]; // subtitle, name, prompt, best
+  const cards = titleCards(), grid = cards[cards.length - 1].y > cards[0].y, TA = G.taMode;
+  const ty = grid ? [0, 172, 185, 222] : [0, 156, 170, 184]; // (mode switch), name, prompt, best
   // hero running, chestnut chasing
   const fr = ['s_w1', 's_w2', 's_w3', 's_w2'][(G.frame >> 3) % 4];
-  const hx = Math.round(VW * (grid ? 0.76 : 0.62));
+  const hx = Math.round(grid ? VW * 0.76 : VW / 2 + 78); // keep the runners clear of the centred texts
   D(ART.hero[fr.replace('s_', 'b_')][0], hx, 208 - 31);
   D(ART.kestane.walk[(G.frame >> 3) % 2], hx - 44 + Math.sin(G.frame / 30) * 6, 208 - 16);
   D(ART.beetle.walk[(G.frame >> 3) % 2][1], hx - 70 + Math.sin(G.frame / 24) * 4, 208 - 16);
   if (grid) D(ART.bee.fly[(G.frame >> 2) % 2][1], hx + 22, 160 + Math.sin(G.frame / 20) * 4);
-  else D(ART.bee.fly[(G.frame >> 2) % 2][1], hx - 100, 150 + Math.sin(G.frame / 20) * 8);
+  else D(ART.bee.fly[(G.frame >> 2) % 2][1], hx + 28, 158 + Math.sin(G.frame / 20) * 6);
   // logo
   const bob = Math.round(Math.sin(G.frame / 25) * 2) - (grid ? 5 : 0);
   drawText('SÜPER', VW / 2, 22 + bob, '#ffd84a', { scale: 2, align: 'center', outline: K });
   drawText('BIYIK', VW / 2 + 2, 48 + bob, K, { scale: 5, align: 'center' });
   drawText('BIYIK', VW / 2, 46 + bob, '#e4572e', { scale: 5, align: 'center', outline: K });
-  drawText(LEVELS.length + ' BÖLÜMLÜK PİKSEL MACERA', VW / 2, ty[0], '#fff4e0', { align: 'center', shadow: K });
+  // mode switch
+  const mt = modeToggle();
+  ctx.fillStyle = K; ctx.fillRect(mt.x - 2, mt.y - 2, mt.w + 4, mt.h + 4);
+  ctx.fillStyle = '#fff4e0'; ctx.fillRect(mt.x - 1, mt.y - 1, mt.w + 2, mt.h + 2);
+  for (const [on, x, w, label, col] of [[!TA, mt.x, mt.split, 'NORMAL', '#ffd84a'], [TA, mt.x + mt.split, mt.w - mt.split, 'ZAMANA KARŞI', '#6af0d8']]) {
+    ctx.fillStyle = on ? col : '#3a2e5a'; ctx.fillRect(x, mt.y, w, mt.h);
+    ctx.fillStyle = on ? 'rgba(255,255,255,.35)' : 'rgba(255,255,255,.08)'; ctx.fillRect(x, mt.y, w, 2);
+    drawText(label, x + w / 2, mt.y + 4, on ? K : '#a89cc0', { align: 'center' });
+  }
+  ctx.fillStyle = K; ctx.fillRect(mt.x + mt.split, mt.y, 1, mt.h);
   // level cards
   const band = grid ? 6 : 12;
   cards.forEach((c, i) => {
-    const locked = i >= G.unlocked, sel = i === G.sel;
+    const locked = i >= G.unlocked, sel = i === G.sel, secret = !!LEVELS[i].secret;
     const [c1, c2] = LEVEL_TINT[LEVEL_THEME[i]];
     ctx.fillStyle = K; ctx.fillRect(c.x - 2, c.y - 2, c.w + 4, c.h + 4);
-    ctx.fillStyle = sel ? ((G.frame >> 3) % 2 ? '#ffd84a' : '#fff4e0') : '#8a8698'; ctx.fillRect(c.x - 1, c.y - 1, c.w + 2, c.h + 2);
-    ctx.fillStyle = locked ? '#3a3648' : c2; ctx.fillRect(c.x, c.y, c.w, c.h);
+    ctx.fillStyle = sel ? ((G.frame >> 3) % 2 ? '#ffd84a' : '#fff4e0') : secret && !locked ? '#6af0d8' : '#8a8698'; ctx.fillRect(c.x - 1, c.y - 1, c.w + 2, c.h + 2);
+    ctx.fillStyle = locked ? (secret ? '#262236' : '#3a3648') : c2; ctx.fillRect(c.x, c.y, c.w, c.h);
     if (!locked) { ctx.fillStyle = c1; ctx.fillRect(c.x, c.y + c.h - band, c.w, band); ctx.fillStyle = 'rgba(255,255,255,.25)'; ctx.fillRect(c.x, c.y + c.h - band, c.w, 2); }
-    if (locked && grid) { // padlock beside the id
-      const lx = c.x + c.w / 2 + 14, ly = c.y + 12;
-      ctx.fillStyle = '#8a8698'; ctx.fillRect(lx + 1, ly - 4, 6, 2); ctx.fillRect(lx + 1, ly - 4, 2, 5); ctx.fillRect(lx + 5, ly - 4, 2, 5); ctx.fillRect(lx, ly, 8, 7);
-      ctx.fillStyle = '#3a3648'; ctx.fillRect(lx + 3, ly + 2, 2, 3);
+    if (secret && !locked) for (let k = 0; k < 3; k++) { // bubbles rising inside the secret card
+      const bx = c.x + 4 + ((hash(k, 9) * (c.w - 8)) | 0), by = c.y + c.h - 2 - ((G.frame * 0.3 + k * 13) % (c.h - 4));
+      ctx.fillStyle = 'rgba(230,250,255,.7)'; ctx.fillRect(Math.round(bx), Math.round(by), 2, 2);
     }
-    drawText(LEVELS[i].id, c.x + c.w / 2 - (locked && grid ? 6 : 0), c.y + (grid ? 5 : 6), locked ? '#8a8698' : '#fff4e0', { align: 'center', scale: 2, shadow: K });
-    if (locked && !grid) { // padlock
-      const lx = c.x + c.w / 2 - 4, ly = c.y + 26;
-      ctx.fillStyle = '#8a8698'; ctx.fillRect(lx + 1, ly - 4, 6, 2); ctx.fillRect(lx + 1, ly - 4, 2, 5); ctx.fillRect(lx + 5, ly - 4, 2, 5); ctx.fillRect(lx, ly, 8, 7);
-      ctx.fillStyle = '#3a3648'; ctx.fillRect(lx + 3, ly + 2, 2, 3);
+    const idCol = locked ? (secret ? '#5a5478' : '#8a8698') : secret ? '#ffd84a' : '#fff4e0';
+    if (TA && !locked) { // time attack: the best time sits on the card
+      const has = taBestOf(i) > 0;
+      if (grid) {
+        drawText(LEVELS[i].id, c.x + c.w / 2, c.y + 3, idCol, { align: 'center', shadow: K });
+        drawText(cardTime(i), c.x + c.w / 2, c.y + 12, has ? '#ffffff' : '#a89cc0', { align: 'center', shadow: K });
+      } else {
+        drawText(LEVELS[i].id, c.x + c.w / 2, c.y + 6, idCol, { align: 'center', scale: 2, shadow: K });
+        drawText(cardTime(i), c.x + c.w / 2, c.y + c.h - 9, has ? K : '#1d16268c', { align: 'center' });
+      }
+      return;
     }
+    if (locked && grid) drawPadlock(c.x + c.w / 2 + 14, c.y + 12); // padlock beside the id
+    drawText(LEVELS[i].id, c.x + c.w / 2 - (locked && grid ? 6 : 0), c.y + (grid ? 5 : 6), idCol, { align: 'center', scale: 2, shadow: K });
+    if (locked && !grid) drawPadlock(c.x + c.w / 2 - 4, c.y + 26);
   });
-  const selName = LEVELS[G.sel].name;
-  drawText(selName, VW / 2, ty[1], '#ffd84a', { align: 'center', shadow: K });
+  const selL = LEVELS[G.sel];
+  drawText(selL.secret ? '★ ' + selL.name + ' ★' : selL.name, VW / 2, ty[1], selL.secret ? '#6af0d8' : '#ffd84a', { align: 'center', shadow: K });
   if ((G.frame >> 4) % 2 === 0) drawText(HAS_TOUCH ? 'OYNAMAK İÇİN DOKUN' : 'BAŞLAMAK İÇİN ENTER', VW / 2, ty[2], '#fff4e0', { align: 'center', shadow: K });
-  drawText('EN YÜKSEK ' + String(G.best).padStart(6, '0'), VW / 2, ty[3], '#c8ecff', { align: 'center', shadow: K });
+  if (TA) { const t = taBestOf(G.sel); drawText('EN İYİ SÜRE ' + (t ? fmtTime(t) : '--:--.--'), VW / 2, ty[3], '#6af0d8', { align: 'center', shadow: K }); }
+  else drawText('EN YÜKSEK ' + String(G.best).padStart(6, '0'), VW / 2, ty[3], '#c8ecff', { align: 'center', shadow: K });
   if (!HAS_TOUCH && !grid) drawText('← → HAREKET  Z ZIPLA  X KOŞ/ATEŞ  P DURAKLAT', VW / 2, 228, '#fff4e0', { align: 'center', shadow: K });
 }
-const TIPS = ["İPUCU: B'YE BASILI TUT, HIZLI KOŞ!", 'İPUCU: GİZLİ BLOKLARI ARA!', 'İPUCU: DÜŞEN PLATFORMDA OYALANMA!', 'İPUCU: BUZDA KAYARSIN, ERKEN FREN YAP!', 'İPUCU: KUM PLATFORMU BATAR, ACELE ET!', 'İPUCU: BALTAYA ULAŞ, KÖPRÜYÜ YIK!'];
+const TIPS = ["İPUCU: B'YE BASILI TUT, HIZLI KOŞ!", 'İPUCU: GİZLİ BLOKLARI ARA!', 'İPUCU: DÜŞEN PLATFORMDA OYALANMA!', 'İPUCU: BUZDA KAYARSIN, ERKEN FREN YAP!', 'İPUCU: KUM PLATFORMU BATAR, ACELE ET!', 'İPUCU: BALTAYA ULAŞ, KÖPRÜYÜ YIK!', 'İPUCU: SUDA A İLE KULAÇ AT, YUKARI YÜZ!'];
 function renderIntro() {
   ctx.fillStyle = '#0b0714'; ctx.fillRect(0, 0, VW, VH);
   const def = LEVELS[G.levelIdx];
   const [c1] = LEVEL_TINT[LEVEL_THEME[G.levelIdx]];
-  drawText('DÜNYA ' + def.id, VW / 2, 62, '#fff4e0', { scale: 2, align: 'center' });
-  drawText(def.name, VW / 2, 90, c1, { align: 'center' });
+  drawText(def.secret ? 'GİZLİ DÜNYA' : 'DÜNYA ' + def.id, VW / 2, 62, def.secret ? '#ffd84a' : '#fff4e0', { scale: 2, align: 'center' });
+  drawText(def.secret ? '★ ' + def.name + ' ★' : def.name, VW / 2, 90, c1, { align: 'center' });
   const set = P.size === 2 ? ART.fire : ART.hero;
   const TS = TILES[LEVEL_THEME[G.levelIdx]];
   ctx.drawImage(TS.gtop, VW / 2 - 34, 138); ctx.drawImage(TS.gtop, VW / 2 - 18, 138);
   D((P.size ? set.b_stand : set.s_stand)[0], VW / 2 - 26, P.size ? 107 : 122);
+  if (G.ta) {
+    const t = taBestOf(G.levelIdx);
+    drawText('ZAMANA KARŞI', VW / 2 - 4, 120, '#6af0d8');
+    drawText('EN İYİ ' + (t ? fmtTime(t) : '--:--.--'), VW / 2 - 4, 132, '#fff4e0');
+    drawText('ÖLÜRSEN BÖLÜM HEMEN YENİDEN BAŞLAR', VW / 2, 176, '#8a8698', { align: 'center' });
+    return;
+  }
   drawText('× ' + G.lives, VW / 2 - 4, 127, '#fff4e0');
   drawText(TIPS[G.levelIdx], VW / 2, 176, '#8a8698', { align: 'center' });
   drawText(String(G.score).padStart(6, '0'), VW / 2, 200, '#ffd84a', { align: 'center' });
+}
+// ---------- time attack result ----------
+function taButtons() {
+  const w = 96, h = 22, gap = 10, y = 178;
+  return [{ id: 'retry', label: 'TEKRAR DENE', x: Math.round(VW / 2 - w - gap / 2), y, w, h }, { id: 'menu', label: 'ANA MENÜ', x: Math.round(VW / 2 + gap / 2), y, w, h }];
+}
+function taAct(id) {
+  if (wipeBusy()) return;
+  SND.play('select');
+  if (id === 'retry') wipeOut(taRestart); else wipeOut(toTitle);
+}
+function updateTAResult() {
+  G.stateT++;
+  if (G.stateT === 24 && G.ta.rec) SND.play('record');
+  if (G.stateT < 30 || wipeBusy()) return;
+  const L = input.left && !G._pl, R = input.right && !G._pr;
+  G._pl = input.left; G._pr = input.right;
+  if (L || R || padTaps.left || padTaps.right) { G.rsel = 1 - G.rsel; SND.play('select'); }
+  if (input.aP || input.startP || padTaps.a) { taAct(G.rsel ? 'menu' : 'retry'); return; }
+  if (input.bP || padTaps.b) { taAct('menu'); return; }
+  const tp = G.tap;
+  if (tp && !tp.pad) for (const [i, b] of taButtons().entries()) if (tp.x >= b.x - 3 && tp.x <= b.x + b.w + 3 && tp.y >= b.y - 3 && tp.y <= b.y + b.h + 3) { G.rsel = i; taAct(b.id); }
+}
+function renderTAResult() {
+  const R = G.ta, def = LEVELS[R.lv], best = taBestOf(R.lv);
+  ctx.fillStyle = 'rgba(11,7,20,.62)'; ctx.fillRect(0, 0, VW, VH);
+  const w = Math.min(VW - 20, 240), x = Math.round((VW - w) / 2);
+  panel(x, 30, w, 178);
+  drawText('ZAMANA KARŞI', VW / 2, 38, '#6af0d8', { align: 'center' });
+  drawText((def.secret ? '' : def.id + ' ') + def.name, VW / 2, 52, '#ffd84a', { align: 'center' });
+  drawText(fmtTime(R.t), VW / 2, 70, '#fff4e0', { scale: 3, align: 'center', outline: K });
+  if (R.rec) {
+    if ((G.frame >> 3) % 4) drawText('YENİ REKOR!', VW / 2, 104, (G.frame >> 2) % 2 ? '#ffd84a' : '#ff9a3a', { scale: 2, align: 'center', outline: K });
+    for (let i = 0; i < 6; i++) { // twinkles around the record text
+      const ph = (G.frame + i * 11) % 40, n = ph < 20 ? [0, 1, 2, 3, 2, 1][ph >> 2] || 0 : 0;
+      if (!n) continue;
+      const sx = Math.round(VW / 2 + (i % 2 ? 1 : -1) * (74 + hash(i, 3) * 14)), sy = Math.round(100 + hash(i, 4) * 20);
+      ctx.fillStyle = '#fff4a0'; ctx.fillRect(sx - n, sy, n * 2 + 1, 1); ctx.fillRect(sx, sy - n, 1, n * 2 + 1);
+    }
+    if (R.prev) drawText('ESKİ REKOR ' + fmtTime(R.prev), VW / 2, 130, '#a89cc0', { align: 'center' });
+  } else {
+    drawText('REKOR ' + fmtTime(best), VW / 2, 108, '#6af0d8', { align: 'center' });
+    drawText('+' + fmtTime(R.t - best).replace(/^00:/, ''), VW / 2, 122, '#ff8a7a', { align: 'center' });
+  }
+  drawText('DENEME ' + R.tries + '   ALTIN ' + G.coins, VW / 2, 150, '#c8c0d8', { align: 'center' });
+  taButtons().forEach((b, i) => {
+    const sel = i === G.rsel;
+    ctx.fillStyle = K; ctx.fillRect(b.x - 1, b.y - 1, b.w + 2, b.h + 2);
+    ctx.fillStyle = sel ? '#ffd84a' : '#5a4a7a'; ctx.fillRect(b.x, b.y, b.w, b.h);
+    ctx.fillStyle = sel ? '#e4572e' : '#3a2e5a'; ctx.fillRect(b.x + 1, b.y + 1, b.w - 2, b.h - 2);
+    ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.fillRect(b.x + 1, b.y + 1, b.w - 2, 2);
+    drawText(b.label, b.x + b.w / 2, b.y + 8, sel ? '#fff4e0' : '#e8e0f0', { align: 'center', shadow: K });
+  });
+  drawText(HAS_TOUCH ? 'A TEKRAR   B MENÜ' : 'Z TEKRAR   X MENÜ', VW / 2, 218, '#8a8698', { align: 'center', shadow: K });
+}
+// ---------- the secret level's ending: credits under the sea ----------
+const SEA_CREDITS = ['★ TEBRİKLER! ★', '', 'MERCAN DENİZİ KEŞFEDİLDİ', '', 'SÜPER BIYIK', '', 'KAHRAMAN', 'BIYIK', '', 'PRENSES', 'LALE', '', 'KÖTÜ ADAM', 'EJDER KRAL', '',
+  'DENİZ DOSTLARI', 'BALON BALIĞI, DENİZANASI', 'VE RENGARENK BALIKLAR', '', 'GRAFİKLER', 'PİKSEL PİKSEL KODLA ÇİZİLDİ', '', 'MÜZİK VE SESLER', 'WEB AUDIO İLE SENTEZLENDİ', '',
+  'OYNADIĞIN İÇİN', 'TEŞEKKÜRLER!', '', '', 'SON'];
+const SEA_TOP = 30, SEA_BOT = 162;
+const seaScroll = () => (SEA_CREDITS.length - 1) * 14 + (SEA_BOT + 4) - (SEA_TOP + SEA_BOT) / 2; // scroll until "SON" sits mid-window
+function updateSeaEnd() {
+  G.stateT++;
+  if (G.stateT % 10 === 0) bubble(rnd(10, VW - 10), VH - 30);
+  updateParts();
+  if ((G.stateT > 150 && (input.aP || input.startP || G.tap)) || G.stateT > 30 + seaScroll() / 0.4 + 240) wipeOut(toTitle);
+}
+function renderSeaEnd() {
+  const camx = G.frame * 0.5;
+  drawParallax('sea', camx);
+  const TS = TILES.sea, off = Math.round(camx) % 16;
+  for (let x = -off; x < VW + 16; x += 16) { ctx.drawImage(TS.gtop, x, 208); ctx.drawImage(TS.gfill, x, 224); }
+  const DS = DECOR.sea, span = VW + 80;
+  for (const [k, x0] of [['coral0', 20], ['fan', 130], ['coral1', 230], ['anemone', 300], ['coral2', 380]]) { const img = DS[k], x = ((x0 - camx) % span + span) % span - 40; D(img, x, 209 - img.height); }
+  // creatures crossing the band below the credits
+  for (let i = 0; i < 3; i++) { const x = ((VW + 40) - (G.frame * (0.5 + i * 0.15) + i * 110) % (VW + 80)), y = 172 + i * 11 + Math.sin(G.frame / 20 + i) * 3; D(ART.fish[i % 2].swim[(G.frame >> 3) % 2][0], x, y); }
+  D(ART.jelly.fr[(G.frame >> 5) % 2], VW - 30, 40 + Math.sin(G.frame / 40) * 10);
+  D(ART.puffer.swim[(G.frame >> 3) % 2][0], VW - 56, 184 + Math.sin(G.frame / 30) * 4);
+  // the hero (and the princess) swimming
+  const set = P.size === 2 ? ART.fire : ART.hero, hy = 188 + Math.round(Math.sin(G.frame / 24) * 3);
+  D(set.b_jump[0], 30, hy - 22);
+  D(ART.princess, 50, hy - 20 + Math.round(Math.sin(G.frame / 24 + 1) * 2));
+  drawParts();
+  drawSea(camx);
+  // scrolling credits
+  const top = SEA_TOP, bottom = SEA_BOT;
+  drawText('MERCAN DENİZİ', VW / 2, 10, '#ffd84a', { scale: 2, align: 'center', outline: K });
+  ctx.save(); ctx.beginPath(); ctx.rect(0, top, VW, bottom - top); ctx.clip();
+  const y0 = bottom + 4 - clamp((G.stateT - 30) * 0.4, 0, seaScroll());
+  SEA_CREDITS.forEach((s, i) => { const y = y0 + i * 14; if (y > top - 10 && y < bottom + 2 && s) drawText(s, VW / 2, y, s === 'SON' || i === 0 ? '#ffd84a' : i % 3 === 0 ? '#c8ecff' : '#fff4e0', { align: 'center', shadow: K }); });
+  ctx.restore();
+  drawText('SKOR ' + String(G.score).padStart(6, '0'), VW / 2, 228, '#fff4e0', { align: 'center', shadow: K });
+  if (G.stateT > 150 && (G.frame >> 4) % 2) drawText('ANA MENÜ İÇİN DOKUN', VW / 2, 214, '#ffd84a', { align: 'center', shadow: K });
 }
 function renderGameOver() {
   ctx.fillStyle = '#0b0714'; ctx.fillRect(0, 0, VW, VH);
@@ -423,6 +606,8 @@ function render() {
     case 'play': case 'dying': renderWorld(); break;
     case 'gameover': renderGameOver(); break;
     case 'ending': renderEnding(); break;
+    case 'taresult': renderWorld(); renderTAResult(); break;
+    case 'seaend': renderSeaEnd(); break;
   }
   if (G.paused) renderPause();
   if (G.wipe) drawWipe();
@@ -579,14 +764,20 @@ function updateTitle() {
   G._pl = input.left; G._pr = input.right;
   if (L) { G.sel = (G.sel + G.unlocked - 1) % G.unlocked; SND.play('select'); }
   if (R) { G.sel = (G.sel + 1) % G.unlocked; SND.play('select'); }
+  const Dn = input.down && !G._pd; G._pd = input.down;
+  if (Dn || input.bP || padTaps.down || padTaps.b) toggleMode();
   let go = input.aP || input.startP;
+  const mt = modeToggle();
+  if (G.tap && !G.tap.pad && G.tap.x >= mt.x - 4 && G.tap.x <= mt.x + mt.w + 4 && G.tap.y >= mt.y - 5 && G.tap.y <= mt.y + mt.h + 5) {
+    toggleMode(G.tap.x >= mt.x + mt.split); G.tap = null;
+  }
   if (G.tap && !G.tap.pad) {
     const t = G.tap; let hit = -1;
     titleCards().forEach((c, i) => { if (t.x >= c.x - 4 && t.x <= c.x + c.w + 4 && t.y >= c.y - 4 && t.y <= c.y + c.h + 4) hit = i; });
     if (hit >= 0) { if (hit < G.unlocked) { G.sel = hit; go = true; } else SND.play('bump'); }
     else go = true;
   }
-  if (go && G.stateT > 20) { SND.init(); SND.play('select'); const sel = G.sel; wipeOut(() => newGame(sel)); }
+  if (go && G.stateT > 20) { SND.init(); SND.play('select'); const sel = G.sel, ta = G.taMode; wipeOut(() => ta ? startTimeAttack(sel) : newGame(sel)); }
 }
 function tick() {
   pollInput();
@@ -610,6 +801,8 @@ function tick() {
     case 'dying': updateDying(); updateParts(); break;
     case 'gameover': if (--G.stateT <= 0 || (G.stateT < 200 && (input.aP || G.tap || input.startP))) wipeOut(toTitle); break;
     case 'ending': updateEnding(); break;
+    case 'taresult': updateTAResult(); break;
+    case 'seaend': updateSeaEnd(); break;
   }
   if (G.wipe) updWipe();
   G.tap = null;
@@ -782,6 +975,7 @@ function loop(now) {
 }
 requestAnimationFrame(loop);
 window.__SB = { G, P, input, get area() { return area; }, LEVELS, beginPlay, newGame, tick, render, pauseItems, HAPTIC, spawnEntity, T, OPT, pixMode, layout };
+Object.assign(window.__SB, { titleCards, modeToggle, taButtons, startTimeAttack, fmtTime, SWIM, SONGS, MAIN_LEVELS });
 })();
 </script>
 </body>
