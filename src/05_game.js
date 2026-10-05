@@ -112,6 +112,24 @@ function oneUp(x, y) { G.lives++; SND.play('oneup'); popup('1UP', x, y, '#6af08a
 function addCoin() { G.coins++; SND.play('coin'); if (G.coins >= 100) { G.coins -= 100; oneUp(P.x, P.y - 8); } }
 function dust(x, y) { G.parts.push({ k: 'dust', x, y, t: 0, vx: rnd(-0.3, 0.3) }); }
 function sparkle(x, y, col) { G.parts.push({ k: 'spark', x, y, t: 0, vx: rnd(-1, 1), vy: rnd(-1.5, 0.2), col: col || '#fff4a0' }); }
+// ---------- juice: haptics, hit-stop, extra particles ----------
+const HAPTIC = {
+  ok: typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function',
+  on: store.get('vibrate', true),
+  set(v) { this.on = !!v; store.set('vibrate', this.on); },
+  buzz(p) { if (!this.on || !this.ok) return; try { navigator.vibrate(p); } catch (e) { } },
+};
+const BUZZ = { stomp: 18, hurt: [40, 40, 60], power: [20, 40, 20, 40, 40], death: [90, 60, 180], brick: 12, boss: 35 };
+function hitStop(n) { G.freeze = Math.max(G.freeze, n); G.flash = 4; }
+function landDust(x, y, n) { for (let i = 0; i < n; i++) { const s = i % 2 ? 1 : -1; G.parts.push({ k: 'dust', x: x + s * rnd(1, 5), y, t: 0, vx: s * rnd(0.4, 1.1) }); } }
+function starBurst(x, y) {
+  for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2 + 0.39; G.parts.push({ k: 'star', x, y, vx: Math.cos(a) * 1.9, vy: Math.sin(a) * 1.9, t: 0, col: i % 2 ? '#ffd84a' : '#fff4e0' }); }
+  G.parts.push({ k: 'twinkle', x, y, t: 0, big: 1 });
+}
+function coinSparkle(x, y) {
+  G.parts.push({ k: 'twinkle', x, y, t: 0 });
+  for (let i = 0; i < 4; i++) { const a = i / 4 * Math.PI * 2 + 0.78; G.parts.push({ k: 'spark', x, y, t: 0, vx: Math.cos(a) * 1.1, vy: Math.sin(a) * 1.1, col: i % 2 ? '#ffd84a' : '#ffffff' }); }
+}
 
 // ---------- entities ----------
 function spawnEntity(s) {
@@ -160,7 +178,7 @@ function spawnFireball() {
 }
 function debris(tx, ty) {
   for (const [dx, dy, vx, vy] of [[0, 0, -1.4, -5.5], [8, 0, 1.4, -5.5], [0, 8, -1.2, -3.8], [8, 8, 1.2, -3.8]])
-    G.parts.push({ k: 'debris', x: tx * 16 + dx, y: ty * 16 + dy, vx, vy, t: 0 });
+    G.parts.push({ k: 'debris', x: tx * 16 + dx, y: ty * 16 + dy, vx, vy, t: 0, spin: vx < 0 ? -1 : 1 });
 }
 function bumpAnim(tx, ty) { area.bumps.push({ tx, ty, t: 0 }); }
 function hitBlock(tx, ty, big) {
@@ -176,7 +194,7 @@ function hitBlock(tx, ty, big) {
       else spawnItem(content, tx, ty);
     }
   } else if (id === T.BRICK) {
-    if (big) { A.t[k] = T.EMPTY; debris(tx, ty); G.score += 50; SND.play('brk'); }
+    if (big) { A.t[k] = T.EMPTY; debris(tx, ty); G.score += 50; SND.play('brk'); HAPTIC.buzz(BUZZ.brick); G.shake = Math.max(G.shake, 3); }
     else { bumpAnim(tx, ty); SND.play('bump'); }
   } else SND.play('bump');
   // things standing on the block get knocked
@@ -213,21 +231,21 @@ function grow(to) {
   P.tfrom = P.size;
   setSize(to);
   P.transform = 48; G.freeze = 48;
-  SND.play('power');
+  SND.play('power'); HAPTIC.buzz(BUZZ.power);
 }
 function hurtPlayer() {
   if (P.inv > 0 || P.star > 0 || P.state !== 'play') return;
   if (P.size > 0) {
     P.tfrom = P.size; setSize(P.size === 2 ? 1 : 0);
-    P.transform = 48; G.freeze = 48; P.inv = 130; SND.play('shrink');
+    P.transform = 48; G.freeze = 48; P.inv = 130; SND.play('shrink'); HAPTIC.buzz(BUZZ.hurt);
   } else killPlayer(false);
 }
 function killPlayer(fell) {
   if (G.state !== 'play') return;
   G.state = 'dying'; G.stateT = 0; P.state = 'dead';
   if (P.size > 0) { setSize(0); }
-  P.vx = 0; P.vy = fell ? -2 : -5.2; P.star = 0; P.ducking = false;
-  MUSIC.play('death');
+  P.vx = 0; P.vy = fell ? -2 : -5.2; P.star = 0; P.ducking = false; P.sq = 0;
+  MUSIC.play('death'); HAPTIC.buzz(BUZZ.death);
 }
 
 function playerControl() {
@@ -259,7 +277,7 @@ function playerControl() {
   if (P.jbuf > 0 && P.coyote > 0) {
     P.vy = -(4.8 + Math.min(Math.abs(P.vx), 2.6) * 0.2);
     P.jumping = true; P.jbuf = 0; P.coyote = 0; P.onGround = false; P.onPlat = null;
-    SND.play(P.size ? 'bigjump' : 'jump');
+    SND.play(P.size ? 'bigjump' : 'jump'); P.sq = -0.8;
   }
   if (!I.a) P.jumping = false;
   P.vy = Math.min(P.vy + ((P.jumping && P.vy < 0) ? 0.18 : 0.55), 5.6);
@@ -273,7 +291,7 @@ function playerControl() {
   }
   // move
   const prevBottom = P.y + P.h;
-  const wasGround = P.onGround;
+  const wasGround = P.onGround, fallV = P.vy;
   const res = moveBody(P, true);
   if (P.x < G.cam.x) { P.x = G.cam.x; if (P.vx < 0) P.vx = 0; }
   if (res.wall) P.vx = 0;
@@ -290,7 +308,13 @@ function playerControl() {
       }
     }
   }
-  if (P.onGround) { if (!wasGround && P.vy === 0 && G.frame % 1 === 0) { /* landed */ } P.combo = 0; }
+  // render-only squash/stretch + dust (no effect on the hitbox)
+  if (P.sq) { P.sq *= 0.72; if (Math.abs(P.sq) < 0.05) P.sq = 0; }
+  if (P.onGround) {
+    if (!wasGround && fallV > 1.5) { P.sq = Math.min(1, fallV / 5.6); if (fallV >= 4.2) landDust(P.x + P.w / 2, P.y + P.h, 6); }
+    else if (Math.abs(P.vx) >= 2.5 && !P.skid && G.frame % 6 === 0) dust(P.x + P.w / 2 - Math.sign(P.vx) * 5, P.y + P.h);
+    P.combo = 0;
+  }
   if (res.head) {
     const cx = P.x + P.w / 2; let best = res.tiles[0], bd = 1e9;
     for (const tx of res.tiles) { const d = Math.abs(tx * 16 + 8 - cx); if (d < bd) { bd = d; best = tx; } }
@@ -301,7 +325,7 @@ function playerControl() {
   const l = Math.floor(P.x / 16), r = Math.floor((P.x + P.w - 1) / 16), t0 = Math.floor(P.y / 16), t1 = Math.floor((P.y + P.h - 1) / 16);
   for (let ty = t0; ty <= t1; ty++) for (let tx = l; tx <= r; tx++) {
     const id = tileAt(area, tx, ty);
-    if (id === T.COIN) { area.t[ty * area.w + tx] = T.EMPTY; addCoin(); G.score += 200; sparkle(tx * 16 + 8, ty * 16 + 8); }
+    if (id === T.COIN) { area.t[ty * area.w + tx] = T.EMPTY; addCoin(); G.score += 200; coinSparkle(tx * 16 + 8, ty * 16 + 8); }
     else if (id === T.LAVA && P.y + P.h > ty * 16 + 5) { killPlayer(true); return; }
   }
   if (P.y > VH + 16) { killPlayer(true); return; }
@@ -405,7 +429,7 @@ function playerHits(e) {
 }
 function bounce() { P.vy = input.a ? -5.4 : -3.9; P.jumping = !!input.a; P.onGround = false; }
 function stomp(e) {
-  SND.play('stomp');
+  SND.play('stomp'); HAPTIC.buzz(BUZZ.stomp); hitStop(3); starBurst(e.x + e.w / 2, e.y + 2);
   if (e.type === 'kestane') { e.flat = 30; e.enemy = false; comboScore(e.x, e.y - 4); }
   else if (e.type === 'beetle') {
     if (e.state === 'walk' || e.state === 'slide') { e.state = 'shell'; e.vx = 0; e.shellT = 400; comboScore(e.x, e.y - 4); }
@@ -560,12 +584,12 @@ function updateItem(e) {
     if (e.kind === 'mush') { addScore(1000, e.x, e.y); grow(1); }
     else if (e.kind === 'flower') { addScore(1000, e.x, e.y); if (P.size === 0) grow(1); else grow(2); }
     else if (e.kind === '1up') { oneUp(e.x, e.y); }
-    else if (e.kind === 'star') { addScore(1000, e.x, e.y); P.star = 620; SND.play('power'); MUSIC.play('star'); }
+    else if (e.kind === 'star') { addScore(1000, e.x, e.y); P.star = 620; SND.play('power'); HAPTIC.buzz(BUZZ.power); MUSIC.play('star'); }
   }
 }
 function hitBoss(b) {
   if (b.dying) return;
-  b.hp--; b.flash = 12; SND.play('bosshit');
+  b.hp--; b.flash = 12; SND.play('bosshit'); HAPTIC.buzz(BUZZ.boss); hitStop(4); starBurst(b.x + b.w / 2, b.y + 8);
   if (b.hp <= 0) { flipKill(b, 1); b.vy = -4; addScore(5000, b.x, b.y); SND.play('burst'); G.shake = 20; }
 }
 function updateBoss(e) {
@@ -626,7 +650,7 @@ function updateSeq() {
         for (let i = 0; i < 28; i++) { const a = i / 28 * Math.PI * 2; G.parts.push({ k: 'fw', x: cx, y: cy, vx: Math.cos(a) * rnd(1.2, 2), vy: Math.sin(a) * rnd(1.2, 2), t: 0, col: ['#ffd84a', '#ff6a8a', '#6af0d8', '#fff4e0'][i % 4] }); }
         SND.play('burst'); G.score += 500;
       }
-      if (since > 130 && !MUSIC.cur) nextLevel();
+      if (since > 130 && !MUSIC.cur) wipeOut(nextLevel);
     }
   }
 }
@@ -653,7 +677,7 @@ function beginPlay() {
   if (G.level.checkpoint) G.level.cpY = (groundRowAt(G.level.checkpoint) + 1) * 16;
   // remove enemies that would be right on top of the spawn point
   for (const e of area.ents) if (e.enemy && e.x > P.x - 48 && e.x < P.x + 64 && e.type !== 'firebar' && e.type !== 'podoboo') e.dead = true;
-  G.state = 'play'; G.fade = 14;
+  G.state = 'play'; G.fade = 0; G.cam.look = 0; P.sq = 0;
   MUSIC.play(THEMES[area.theme].music);
 }
 function groundRowAt(tx) { for (let y = 3; y < ROWS; y++) if (SOLID_ID[tileAt(area, tx, y)] || tileAt(area, tx, y) === T.SEMI) return y - 1; return 12; }
@@ -709,8 +733,13 @@ function updatePlay() {
   updateSeq();
   // camera
   if (P.state === 'play' || P.state === 'walk' || P.state === 'walkP') {
-    const target = P.x + P.w / 2 - VW * 0.42;
-    if (target > G.cam.x) G.cam.x = target;
+    // smoothed follow with a small look-ahead; the camera only ever moves right
+    const C = G.cam, base = P.x + P.w / 2 - VW * 0.42;
+    const lt = P.vx > 0.6 ? Math.min(24, (P.vx - 0.6) * 14) : P.vx < -0.3 ? 0 : (C.look || 0);
+    C.look = approach(C.look || 0, lt, 0.5);
+    const target = base + C.look;
+    if (target > C.x) C.x += target - C.x < 0.5 ? target - C.x : (target - C.x) * 0.18;
+    if (C.x < base - 14) C.x = base - 14;
     G.cam.x = clamp(G.cam.x, 0, Math.max(0, area.w * 16 - VW));
     if (area.w * 16 < VW) G.cam.x = (area.w * 16 - VW) / 2;
   }
@@ -720,17 +749,20 @@ function updateParts() {
     p.t++;
     switch (p.k) {
       case 'text': p.y -= 0.6; if (p.t > 45) p.dead = 1; break;
-      case 'coinpop': p.vy += 0.38; p.y += p.vy; if (p.t > 26) { p.dead = 1; popup(200, p.x + 2, p.y); } break;
+      case 'coinpop': p.vy += 0.38; p.y += p.vy; if (p.t > 26) { p.dead = 1; popup(200, p.x + 2, p.y); coinSparkle(p.x + 8, p.y + 8); } break;
       case 'debris': p.vy += 0.35; p.x += p.vx; p.y += p.vy; if (p.y > VH + 10) p.dead = 1; break;
       case 'dust': p.y -= 0.3; p.x += p.vx; if (p.t > 16) p.dead = 1; break;
       case 'spark': p.x += p.vx; p.y += p.vy; p.vy += 0.04; if (p.t > 22) p.dead = 1; break;
       case 'fw': p.x += p.vx; p.y += p.vy; p.vx *= 0.97; p.vy = p.vy * 0.97 + 0.03; if (p.t > 55) p.dead = 1; break;
+      case 'star': p.x += p.vx; p.y += p.vy; p.vx *= 0.86; p.vy *= 0.86; if (p.t > 16) p.dead = 1; break;
+      case 'twinkle': if (p.t > (p.big ? 10 : 14)) p.dead = 1; break;
     }
   }
   if (G.parts.length > 0) G.parts = G.parts.filter(p => !p.dead);
 }
 function updateDying() {
   G.stateT++;
+  if (G.stateT === 170) wipeOut(null, 18);
   if (G.stateT > 28) { P.vy = Math.min(P.vy + 0.25, 6); P.y += P.vy; }
   if (G.stateT === 190) {
     G.lives--;
