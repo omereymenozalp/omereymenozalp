@@ -23,6 +23,18 @@ Bütün içerik kodla üretilir:
 
 Telefonu yan çevirince görüş alanı genişler. Dik tutunca kontroller ekranın altına konsol gibi yerleşir.
 
+## Telefona uygulama olarak yükle
+
+Oyun bir PWA'dır: GitHub Pages üzerinden açılınca ana ekrana eklenebilir, tam ekran açılır ve ilk açılıştan sonra internetsiz de oynanır.
+
+1. **GitHub Pages'i aç:** depoda **Settings → Pages → Build and deployment → Source: Deploy from a branch** seç, dal olarak **main**, klasör olarak **/ (root)** seçip kaydet. Birkaç dakika sonra oyun `https://<kullanıcı-adı>.github.io/<depo-adı>/` adresinde yayında olur.
+2. **iPhone / iPad (Safari):** adresi Safari'de aç → alttaki **Paylaş** düğmesi (kare ve yukarı ok) → **Ana Ekrana Ekle** → **Ekle**.
+3. **Android (Chrome):** adresi Chrome'da aç → sağ üstteki **⋮** menüsü → **Uygulamayı yükle** (ya da **Ana ekrana ekle**) → **Yükle**.
+
+Ana ekrandaki **Süper Bıyık** simgesine dokununca oyun tarayıcı çubukları olmadan açılır. Yeni bir sürüm yayınlandığında internete bağlıyken oyunu bir kez açmak yeterli; güncelleme kendiliğinden gelir.
+
+Simgeler oyunun kendi piksel çizimlerinden üretilir: `node tools/build.mjs && node tools/make-icons.mjs` (çıktılar `icons/` ve `favicon.png`).
+
 ## Bölümler
 
 1. **1-1 Yeşil Vadi:** gizli bonus odasına inen bir boru, gizli 1UP bloğu ve bayrak direği.

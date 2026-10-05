@@ -7,7 +7,15 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#140d22">
+<meta name="apple-mobile-web-app-title" content="Süper Bıyık">
+<meta name="application-name" content="Süper Bıyık">
 <title>Süper Bıyık</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon.png">
+<link rel="icon" type="image/png" sizes="48x48" href="icons/favicon-48.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
+<script data-pwa>/* PWA: offline service worker, only on a real http(s) site, never in file:// or sandboxed frames */try{if(/^https?:$/.test(location.protocol)&&'serviceWorker' in navigator&&window.top===window)addEventListener('load',function(){try{navigator.serviceWorker.register('sw.js').catch(function(){})}catch(e){}})}catch(e){}</script>
 <style>
 /* Layout: the game canvas fills the screen in landscape, controls float over it; in portrait the canvas sits on top and a console-style pad fills the rest. */
 :root{
