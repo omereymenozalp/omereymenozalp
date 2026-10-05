@@ -72,7 +72,13 @@ function drawPlayer() {
   else key = 'stand';
   if (big && P.throwT > 0 && key !== 'duck') key = 'throw';
   const pair = S[(big ? 'b_' : 's_') + key] || S[(big ? 'b_' : 's_') + 'stand'];
-  D(pair[P.dir > 0 ? 0 : 1], P.x - 2, big ? bottom - 31 : bottom - 16);
+  drawSquash(pair[P.dir > 0 ? 0 : 1], P.x - 2, big ? bottom - 31 : bottom - 16, P.state === 'play' ? P.sq || 0 : 0);
+}
+// squash (s > 0) / stretch (s < 0) around the sprite's bottom centre; render-only
+function drawSquash(img, x, y, s) {
+  if (Math.abs(s) < 0.12) return D(img, x, y);
+  const w = img.width, h = img.height, sw = Math.round(w * (1 + 0.18 * s)), sh = Math.round(h * (1 - 0.16 * s));
+  ctx.drawImage(img, Math.round(x + (w - sw) / 2), Math.round(y + h - sh), sw, sh);
 }
 let podobooDown = null;
 function drawEnt(e) {
@@ -169,7 +175,27 @@ function drawParts(front) {
     switch (p.k) {
       case 'text': drawText(p.text, p.x, p.y, p.col, { shadow: K }); break;
       case 'coinpop': D(ART.coin[(p.t >> 2) % 4], p.x, p.y); break;
-      case 'debris': D(DECOR[area.theme].debris, p.x, p.y); break;
+      case 'debris': { // tumbles in quarter turns so it stays pixel-crisp
+        const q = ((p.t >> 2) * (p.spin || 1)) & 3;
+        if (!q) { D(DECOR[area.theme].debris, p.x, p.y); break; }
+        ctx.save(); ctx.translate(Math.round(p.x) + 4, Math.round(p.y) + 4); ctx.rotate(q * Math.PI / 2);
+        ctx.drawImage(DECOR[area.theme].debris, -4, -4); ctx.restore(); break;
+      }
+      case 'star': {
+        const x = Math.round(p.x), y = Math.round(p.y);
+        ctx.fillStyle = p.col;
+        if (p.t < 9) { ctx.fillRect(x - 1, y, 3, 1); ctx.fillRect(x, y - 1, 1, 3); } else ctx.fillRect(x, y, 1, 1);
+        break;
+      }
+      case 'twinkle': { // 4-point sparkle that pops then shrinks
+        const n = p.big ? [2, 4, 5, 4, 3, 2, 2, 1, 1, 1, 0][p.t] : [1, 2, 3, 3, 2, 2, 1, 1, 1, 1, 0, 0, 0, 0, 0][p.t];
+        if (!n) break;
+        const x = Math.round(p.x), y = Math.round(p.y);
+        ctx.fillStyle = p.t < 3 ? '#ffffff' : '#fff4a0';
+        ctx.fillRect(x - n, y, n * 2 + 1, 1); ctx.fillRect(x, y - n, 1, n * 2 + 1);
+        if (n > 2) ctx.fillRect(x - 1, y - 1, 3, 3);
+        break;
+      }
       case 'dust': ctx.fillStyle = 'rgba(255,244,224,' + (1 - p.t / 16) + ')'; ctx.fillRect(Math.round(p.x - 2), Math.round(p.y - 3), 3, 3); break;
       case 'spark': case 'fw': ctx.fillStyle = p.col; ctx.fillRect(Math.round(p.x), Math.round(p.y), p.k === 'fw' ? 2 : 1 + (p.t < 8), p.k === 'fw' ? 2 : 1 + (p.t < 8)); break;
     }
@@ -193,7 +219,9 @@ function drawHUD() {
 }
 function renderWorld() {
   const A = area;
+  // round the camera the same way as the hero so he never jitters against the screen
   let camx = Math.round(G.cam.x);
+  if (G.state === 'play') camx = clamp(Math.round(P.x) - Math.round(P.x - G.cam.x), Math.floor(G.cam.x), Math.ceil(G.cam.x));
   const sx = G.shake > 0 ? Math.round(rnd(-2, 2)) : 0, sy = G.shake > 0 ? Math.round(rnd(-2, 2)) : 0;
   drawParallax(A.theme, camx);
   if (A.theme === 'castle') { // lava glow
@@ -215,6 +243,7 @@ function renderWorld() {
   drawHUD();
   if (G.msg) drawMessage();
   if (G.fade > 0) { ctx.fillStyle = 'rgba(0,0,0,' + (G.fade / 14) + ')'; ctx.fillRect(0, 0, VW, VH); }
+  if (G.flash > 0) { ctx.fillStyle = 'rgba(255,255,255,' + (G.flash * 0.07) + ')'; ctx.fillRect(0, 0, VW, VH); }
 }
 function panel(x, y, w, h) {
   ctx.fillStyle = K; ctx.fillRect(x - 2, y - 2, w + 4, h + 4);
@@ -310,7 +339,7 @@ function updateEnding() {
     SND.play('burst');
   }
   updateParts();
-  if (G.stateT > 150 && (input.aP || input.startP || G.tap)) toTitle();
+  if (G.stateT > 150 && (input.aP || input.startP || G.tap)) wipeOut(toTitle);
 }
 function renderEnding() {
   ctx.drawImage(LAYERS.castle.sky, 0, 0, VW, VH);
@@ -338,11 +367,119 @@ function render() {
     case 'gameover': renderGameOver(); break;
     case 'ending': renderEnding(); break;
   }
-  if (G.paused) {
-    ctx.fillStyle = 'rgba(11,7,20,.7)'; ctx.fillRect(0, 0, VW, VH);
-    drawText('DURAKLATILDI', VW / 2, 96, '#ffd84a', { scale: 2, align: 'center', outline: K });
-    drawText('DEVAM ETMEK İÇİN DOKUN', VW / 2, 126, '#fff4e0', { align: 'center' });
-    drawText('ANA MENÜ: AŞAĞI + DOKUN', VW / 2, 142, '#8a8698', { align: 'center' });
+  if (G.paused) renderPause();
+  if (G.wipe) drawWipe();
+}
+
+// ---------- pause menu ----------
+const PAUSE_IDS = ['resume', 'restart', 'sound', 'vib', 'menu'];
+function pauseItems() {
+  const w = Math.min(VW - 28, 204), h = 25, gap = 5, x = Math.round((VW - w) / 2), y0 = 52;
+  return PAUSE_IDS.map((id, i) => ({ id, x, y: y0 + i * (h + gap), w, h }));
+}
+function canRestart() { return !G.seq && !G.timeStop && !G.msg && P.state !== 'flag'; }
+function pauseLabel(id) {
+  switch (id) {
+    case 'resume': return 'DEVAM ET';
+    case 'restart': return 'BÖLÜMÜ YENİDEN BAŞLAT';
+    case 'sound': return 'SES: ' + (SND.muted ? 'KAPALI' : 'AÇIK');
+    case 'vib': return 'TİTREŞİM: ' + (!HAPTIC.ok ? 'YOK' : HAPTIC.on ? 'AÇIK' : 'KAPALI');
+    case 'menu': return 'ANA MENÜ';
+  }
+}
+function pauseEnabled(id) { return id === 'restart' ? canRestart() : id === 'vib' ? HAPTIC.ok : true; }
+function renderPause() {
+  ctx.fillStyle = 'rgba(11,7,20,.72)'; ctx.fillRect(0, 0, VW, VH);
+  const items = pauseItems(), f = items[0];
+  panel(f.x - 10, 14, f.w + 20, items[items.length - 1].y + f.h + 8 - 14);
+  drawText('DURAKLATILDI', VW / 2, 22, '#ffd84a', { scale: 2, align: 'center', outline: K });
+  items.forEach((it, i) => {
+    const sel = i === G.psel, on = pauseEnabled(it.id), press = sel && G.pflash > 0;
+    const y = it.y + (press ? 1 : 0);
+    ctx.fillStyle = K; ctx.fillRect(it.x - 1, y - 1, it.w + 2, it.h + 2);
+    ctx.fillStyle = sel ? (press ? '#fff4e0' : '#ffd84a') : '#5a4a7a'; ctx.fillRect(it.x, y, it.w, it.h);
+    ctx.fillStyle = sel ? '#e4572e' : '#3a2e5a'; ctx.fillRect(it.x + 1, y + 1, it.w - 2, it.h - 2);
+    ctx.fillStyle = sel ? 'rgba(255,255,255,.22)' : 'rgba(255,255,255,.08)'; ctx.fillRect(it.x + 1, y + 1, it.w - 2, 2);
+    if (!press) { ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.fillRect(it.x + 1, y + it.h - 3, it.w - 2, 2); }
+    const col = !on ? '#6a6488' : sel ? '#fff4e0' : '#e8e0f0';
+    drawText(pauseLabel(it.id), it.x + it.w / 2, y + 8, col, { align: 'center', shadow: on ? K : null });
+    if (sel && (G.frame >> 4) % 2 === 0) drawText('▶', it.x + 5, y + 8, '#ffd84a', { shadow: K });
+    if (it.id === 'restart' && on && G.lives > 1) drawText('-1♥', it.x + it.w - 5, y + 8, '#ffb0a0', { align: 'right', shadow: K });
+  });
+  const hint = HAS_TOUCH ? '< > SEÇ   A TAMAM   B DEVAM' : 'OKLAR SEÇ   ENTER TAMAM   ESC DEVAM';
+  drawText(hint, VW / 2, VH - 16, '#8a8698', { align: 'center', shadow: K });
+}
+function movePause(d) { G.psel = (G.psel + d + PAUSE_IDS.length) % PAUSE_IDS.length; SND.play('select'); }
+function pauseAct(id) {
+  G.pflash = 6;
+  switch (id) {
+    case 'resume': unpause(); break;
+    case 'restart':
+      if (!canRestart()) { SND.play('bump'); break; }
+      // same cost as losing a life (never below 1, so it can't cause a game over); restarts from the level start, small
+      SND.play('select');
+      wipeOut(() => { G.paused = false; G.lives = Math.max(1, G.lives - 1); P.size = 0; startLevel(G.levelIdx, true); }, 20, irisCenter());
+      break;
+    case 'sound': toggleMute(); SND.play('select'); break;
+    case 'vib':
+      if (!HAPTIC.ok) { SND.play('bump'); break; }
+      HAPTIC.set(!HAPTIC.on); SND.play('select'); HAPTIC.buzz(30); break;
+    case 'menu': SND.play('select'); wipeOut(() => { G.paused = false; toTitle(); }); break;
+  }
+}
+function updatePause() {
+  if (G.pflash > 0) G.pflash--;
+  const t = input.touch, m = G._mt || {};
+  G._mt = t;
+  if (wipeBusy()) return;
+  const edge = k => (t[k] && !m[k]) || padTaps[k];
+  if (edge('left')) movePause(-1);
+  if (edge('right') || edge('down')) movePause(1);
+  if (edge('a')) { pauseAct(PAUSE_IDS[G.psel]); return; }
+  if (edge('b')) { pauseAct('resume'); return; }
+  const tp = G.tap;
+  if (tp && !tp.pad) {
+    const items = pauseItems();
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i];
+      if (tp.x >= it.x - 2 && tp.x <= it.x + it.w + 2 && tp.y >= it.y - 2 && tp.y <= it.y + it.h + 2) { G.psel = i; pauseAct(it.id); break; }
+    }
+  }
+}
+
+// ---------- screen transitions: pixel iris wipe ----------
+// out: iris closes to black, then fn() runs and the iris holds shut until the game state changes, then opens again.
+function wipeBusy() { return !!G.wipe && G.wipe.k !== 'in'; }
+function irisCenter() {
+  if ((G.state === 'play' || G.state === 'dying') && area) return { x: P.x + P.w / 2 - G.cam.x, y: clamp(P.y + P.h / 2, 16, VH - 16) };
+  return { x: VW / 2, y: VH / 2 };
+}
+function wipeOut(fn, dur, c) {
+  if (wipeBusy()) return;
+  c = c || irisCenter();
+  G.wipe = { k: 'out', t: 0, dur: dur || 18, fn, cx: c.x, cy: c.y };
+}
+function wipeIn() { const c = irisCenter(); G.wipe = { k: 'in', t: 0, dur: 20, cx: c.x, cy: c.y }; }
+function updWipe() {
+  const w = G.wipe; w.t++;
+  if (w.k === 'out' && w.t >= w.dur) { w.k = 'hold'; w.t = 0; const f = w.fn; w.fn = null; if (f) f(); }
+  else if (w.k === 'hold' && w.t > 40) wipeIn(); // safety: never stay black
+  else if (w.k === 'in' && w.t >= w.dur) G.wipe = null;
+}
+function drawWipe() {
+  const w = G.wipe;
+  let f = w.k === 'out' ? 1 - w.t / w.dur : w.k === 'in' ? w.t / w.dur : 0;
+  f = clamp(f, 0, 1); f = f * f * (3 - 2 * f);
+  const B = 4, cx = Math.round(w.cx / B) * B, cy = w.cy;
+  const R = Math.hypot(Math.max(cx, VW - cx), Math.max(cy, VH - cy)) + B, r = R * f;
+  ctx.fillStyle = '#0b0714';
+  if (r < B) { ctx.fillRect(0, 0, VW, VH); return; }
+  for (let y = 0; y < VH; y += B) {
+    const dy = y + B / 2 - cy;
+    if (Math.abs(dy) >= r) { ctx.fillRect(0, y, VW, B); continue; }
+    const hw = Math.round(Math.sqrt(r * r - dy * dy) / B) * B, x0 = cx - hw, x1 = cx + hw;
+    if (x0 > 0) ctx.fillRect(0, y, x0, B);
+    if (x1 < VW) ctx.fillRect(x1, y, VW - x1, B);
   }
 }
 
@@ -351,12 +488,13 @@ function render() {
 // =====================================================================
 const HAS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 function pause() {
-  if (G.state !== 'play' || G.paused) return;
-  G.paused = true; G.resumeMusic = MUSIC.name; G.resumeSpeed = MUSIC.speed; MUSIC.stop(); SND.play('pause');
+  if (G.state !== 'play' || G.paused || wipeBusy()) return;
+  G.paused = true; G.psel = 0; G.pflash = 0; G._mt = input.touch; layout(); G.resumeMusic = MUSIC.name; G.resumeSpeed = MUSIC.speed; MUSIC.stop(); SND.play('pause');
 }
 function unpause() {
-  if (!G.paused) return;
-  G.paused = false;
+  if (!G.paused || wipeBusy()) return;
+  G.paused = false; input._pa = input._pb = input._ps = 1; // a held confirm key must not also jump
+  layout();
   if (G.resumeMusic && SONGS[G.resumeMusic] && SONGS[G.resumeMusic].loop) MUSIC.play(G.resumeMusic, null, G.resumeSpeed || 1);
 }
 function updateTitle() {
@@ -372,35 +510,35 @@ function updateTitle() {
     if (hit >= 0) { if (hit < G.unlocked) { G.sel = hit; go = true; } else SND.play('bump'); }
     else go = true;
   }
-  if (go && G.stateT > 20) { SND.init(); SND.play('select'); newGame(G.sel); }
+  if (go && G.stateT > 20) { SND.init(); SND.play('select'); const sel = G.sel; wipeOut(() => newGame(sel)); }
 }
 function tick() {
   pollInput();
   G.frame++;
   if (G.fade > 0) G.fade--;
   if (G.shake > 0) G.shake--;
+  if (G.flash > 0) G.flash--;
   switch (G.state) {
-    case 'title': updateTitle(); break;
-    case 'intro': if (--G.stateT <= 0) beginPlay(); break;
+    case 'title': if (wipeBusy()) G.stateT++; else updateTitle(); break;
+    case 'intro': if (--G.stateT === 18) wipeOut(null, 16); if (G.stateT <= 0) beginPlay(); break;
     case 'play':
-      if (G.paused) {
-        if (G.tap || input.startP || input.aP) { if (input.down) { G.paused = false; toTitle(); } else unpause(); }
-        break;
-      }
+      if (G.paused) { updatePause(); break; }
       if (input.startP) { pause(); break; }
       updatePlay(); updateParts();
       if (G.msg) {
         G.msg.t++;
         if (G.msg.t % 20 === 0) sparkle(P.x + 14, P.y - 4, '#ff6a8a');
-        if (G.msg.t > 420 || (G.msg.t > 150 && (input.aP || G.tap))) toEnding();
+        if (G.msg.t > 420 || (G.msg.t > 150 && (input.aP || G.tap))) wipeOut(toEnding);
       }
       break;
     case 'dying': updateDying(); updateParts(); break;
-    case 'gameover': if (--G.stateT <= 0 || (G.stateT < 200 && (input.aP || G.tap || input.startP))) toTitle(); break;
+    case 'gameover': if (--G.stateT <= 0 || (G.stateT < 200 && (input.aP || G.tap || input.startP))) wipeOut(toTitle); break;
     case 'ending': updateEnding(); break;
   }
+  if (G.wipe) updWipe();
   G.tap = null;
-  if (G.state !== G._lastState) { G._lastState = G.state; layout(); }
+  for (const k in padTaps) delete padTaps[k];
+  if (G.state !== G._lastState) { G._lastState = G.state; layout(); if (G.wipe && G.wipe.k === 'hold') wipeIn(); }
 }
 
 // ---------- layout ----------
@@ -417,7 +555,7 @@ function layout() {
     pad.classList.remove('portrait'); pad.style.top = '0px';
     const dp = clamp(H * 0.4, 120, 200);
     pad.style.setProperty('--dp', dp + 'px'); pad.style.setProperty('--ab', dp * 1.02 + 'px');
-    const inPlay = G.state === 'play' || G.state === 'dying';
+    const inPlay = (G.state === 'play' || G.state === 'dying') && !G.paused; // paused: keep the menu title clear
     Object.assign(topBar.style, inPlay ? { top: 'calc(6px + env(safe-area-inset-top,0px))', left: '50%', right: 'auto', transform: 'translateX(-50%)' }
       : { top: 'calc(6px + env(safe-area-inset-top,0px))', left: 'auto', right: 'calc(8px + env(safe-area-inset-right,0px))', transform: 'none' });
     hintEl.classList.add('hide');
@@ -439,7 +577,7 @@ function layout() {
 }
 
 // ---------- touch pad ----------
-const ptrs = new Map();
+const ptrs = new Map(), padTaps = {};
 const padBtns = [...document.querySelectorAll('[data-k]')];
 function updTouch() {
   const t = {};
@@ -457,6 +595,7 @@ pad.addEventListener('pointerdown', e => {
   try { e.target.releasePointerCapture(e.pointerId); } catch (err) { }
   ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
   updTouch();
+  Object.assign(padTaps, input.touch); // latch: a tap shorter than a frame still counts in menus
   if (G.state !== 'play' || G.paused) G.tap = G.tap || { x: -99, y: -99, pad: true };
 });
 window.addEventListener('pointermove', e => { if (ptrs.has(e.pointerId)) { ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); updTouch(); } }, { passive: true });
@@ -477,6 +616,13 @@ document.addEventListener('dblclick', e => e.preventDefault());
 window.addEventListener('keydown', e => {
   SND.init();
   if (G.state === 'title' && !MUSIC.cur && SND.ctx) MUSIC.play('title');
+  if (G.paused && !wipeBusy() && !e.repeat) { // pause menu: arrows move, Enter/Z/Space confirm, X goes back
+    const c = e.code;
+    if (c === 'ArrowUp' || c === 'KeyW' || c === 'ArrowLeft') { movePause(-1); e.preventDefault(); return; }
+    if (c === 'ArrowDown' || c === 'KeyS' || c === 'ArrowRight') { movePause(1); e.preventDefault(); return; }
+    if (c === 'Enter' || c === 'KeyZ' || c === 'Space' || c === 'KeyK') { pauseAct(PAUSE_IDS[G.psel]); e.preventDefault(); return; }
+    if (c === 'KeyX' || c === 'KeyJ' || c === 'Backspace') { pauseAct('resume'); e.preventDefault(); return; }
+  }
   const k = KEYMAP[e.code];
   if (k) { input.keys[k] = 1; e.preventDefault(); }
   if (e.code === 'KeyP' || e.code === 'Escape') { if (G.paused) unpause(); else pause(); }
@@ -491,8 +637,8 @@ const SND_ON = '<path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4
 const SND_OFF = '<path d="M3 9v6h4l5 5V4L7 9H3zm13.6 3 2.7-2.7-1.4-1.4-2.7 2.7-2.7-2.7-1.4 1.4 2.7 2.7-2.7 2.7 1.4 1.4 2.7-2.7 2.7 2.7 1.4-1.4z"/>';
 function toggleMute() { SND.init(); SND.setMuted(!SND.muted); document.getElementById('icoSnd').innerHTML = SND.muted ? SND_OFF : SND_ON; }
 document.getElementById('icoSnd').innerHTML = SND.muted ? SND_OFF : SND_ON;
-document.getElementById('bMute').addEventListener('click', e => { e.stopPropagation(); toggleMute(); });
-document.getElementById('bPause').addEventListener('click', e => { e.stopPropagation(); if (G.paused) unpause(); else pause(); });
+document.getElementById('bMute').addEventListener('click', e => { e.stopPropagation(); e.currentTarget.blur(); toggleMute(); });
+document.getElementById('bPause').addEventListener('click', e => { e.stopPropagation(); e.currentTarget.blur(); if (G.paused) unpause(); else pause(); });
 const bFull = document.getElementById('bFull');
 const fsEl = document.documentElement;
 if (!(fsEl.requestFullscreen || fsEl.webkitRequestFullscreen) || !document.fullscreenEnabled && !document.webkitFullscreenEnabled) bFull.classList.add('hide');
@@ -524,7 +670,7 @@ function loop(now) {
   render();
 }
 requestAnimationFrame(loop);
-window.__SB = { G, P, input, get area() { return area; }, LEVELS, beginPlay, newGame, tick, render };
+window.__SB = { G, P, input, get area() { return area; }, LEVELS, beginPlay, newGame, tick, render, pauseItems, HAPTIC };
 })();
 </script>
 </body>
