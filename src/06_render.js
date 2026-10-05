@@ -614,15 +614,22 @@ function render() {
 }
 
 // ---------- pause menu ----------
-// two pages: the main menu and AYARLAR (settings); every row stays >= ~36 CSS px tall when the screen allows it
-const PAUSE_PAGES = [['resume', 'restart', 'sound', 'settings', 'menu'], ['vib', 'padsize', 'padalpha', 'pixel', 'back']];
+// two pages: the main menu and AYARLAR (settings); every row stays >= ~36 CSS px tall when the screen allows it.
+// AYARLAR is a 2-column grid (row-major: controls on the left, looks on the right) of two-line cells (name / value), GERİ spans both columns.
+const PAUSE_PAGES = [['resume', 'restart', 'sound', 'settings', 'menu'], ['ctrl', 'padsize', 'autorun', 'padalpha', 'vib', 'pixel', 'back']];
 function pauseIds() { return PAUSE_PAGES[G.ppage || 0]; }
 function pauseItems() {
-  const w = Math.min(VW - 28, 204), gap = 4, h = clamp(Math.ceil(36 / cssScale), 25, 29), x = Math.round((VW - w) / 2), y0 = 50;
+  const gap = 4, h = clamp(Math.ceil(36 / cssScale), 25, 29), y0 = 50;
+  if (G.ppage) {
+    const w = Math.min(VW - 24, 248), x = Math.round((VW - w) / 2), cw = (w - gap) / 2;
+    return pauseIds().map((id, i) => id === 'back' ? { id, x, y: y0 + Math.ceil(i / 2) * (h + gap), w, h }
+      : { id, x: Math.round(x + (i % 2) * (cw + gap)), y: y0 + (i >> 1) * (h + gap), w: Math.round(cw), h, two: true });
+  }
+  const w = Math.min(VW - 28, 204), x = Math.round((VW - w) / 2);
   return pauseIds().map((id, i) => ({ id, x, y: y0 + i * (h + gap), w, h }));
 }
 function canRestart() { return !G.seq && !G.timeStop && !G.msg && P.state !== 'flag'; }
-const OPT_NAMES = { padSize: { s: 'KÜÇÜK', m: 'ORTA', l: 'BÜYÜK' }, padAlpha: { s: 'AZ', m: 'ORTA', l: 'ÇOK' } };
+const OPT_NAMES = { padSize: { s: 'KÜÇÜK', m: 'ORTA', l: 'BÜYÜK' }, padAlpha: { s: 'AZ', m: 'ORTA', l: 'ÇOK' }, ctrl: { pad: 'TUŞLAR', stick: 'JOYSTICK' } };
 function pauseLabel(id) {
   switch (id) {
     case 'resume': return 'DEVAM ET';
@@ -634,14 +641,16 @@ function pauseLabel(id) {
     case 'padsize': return 'TUŞ BOYUTU: ' + OPT_NAMES.padSize[OPT.padSize];
     case 'padalpha': return 'TUŞ SAYDAMLIĞI: ' + OPT_NAMES.padAlpha[OPT.padAlpha];
     case 'pixel': return 'PİKSEL ÖLÇEĞİ: ' + (pixMode() === 'tam' ? 'TAM' : 'UYDUR');
+    case 'ctrl': return 'KONTROL: ' + OPT_NAMES.ctrl[OPT.ctrl];
+    case 'autorun': return 'OTOMATİK KOŞU: ' + (OPT.autoRun ? 'AÇIK' : 'KAPALI');
     case 'back': return 'GERİ';
   }
 }
 function pauseEnabled(id) { return id === 'restart' ? canRestart() : id === 'vib' ? HAPTIC.ok : true; }
 function renderPause() {
   ctx.fillStyle = 'rgba(11,7,20,.72)'; ctx.fillRect(0, 0, VW, VH);
-  const items = pauseItems(), f = items[0];
-  panel(f.x - 10, 14, f.w + 20, items[items.length - 1].y + f.h + 8 - 14);
+  const items = pauseItems(), f = items[items.length - 1]; // the last row spans the full width on both pages
+  panel(f.x - 10, 14, f.w + 20, f.y + f.h + 8 - 14);
   drawText(G.ppage ? 'AYARLAR' : 'DURAKLATILDI', VW / 2, 22, '#ffd84a', { scale: 2, align: 'center', outline: K });
   items.forEach((it, i) => {
     const sel = i === G.psel, on = pauseEnabled(it.id), press = sel && G.pflash > 0;
@@ -652,8 +661,12 @@ function renderPause() {
     ctx.fillStyle = sel ? 'rgba(255,255,255,.22)' : 'rgba(255,255,255,.08)'; ctx.fillRect(it.x + 1, y + 1, it.w - 2, 2);
     if (!press) { ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.fillRect(it.x + 1, y + it.h - 3, it.w - 2, 2); }
     const col = !on ? '#6a6488' : sel ? '#fff4e0' : '#e8e0f0';
-    drawText(pauseLabel(it.id), it.x + it.w / 2, ty, col, { align: 'center', shadow: on ? K : null });
-    if (sel && (G.frame >> 4) % 2 === 0) drawText('▶', it.x + 5, ty, '#ffd84a', { shadow: K });
+    if (it.two) { // "NAME: VALUE" split over two lines, the value in gold
+      const [k, v] = pauseLabel(it.id).split(': '), t0 = y + Math.floor((it.h - 19) / 2) + 1;
+      drawText(k, it.x + it.w / 2, t0, col, { align: 'center', shadow: on ? K : null });
+      drawText(v, it.x + it.w / 2, t0 + 10, !on ? '#6a6488' : sel ? '#ffe9a0' : '#ffd84a', { align: 'center', shadow: on ? K : null });
+    } else drawText(pauseLabel(it.id), it.x + it.w / 2, ty, col, { align: 'center', shadow: on ? K : null });
+    if (sel && (G.frame >> 4) % 2 === 0) drawText('▶', it.x + 4, ty, '#ffd84a', { shadow: K });
     if (it.id === 'restart' && on && G.lives > 1) drawText('-1♥', it.x + it.w - 5, ty, '#ffb0a0', { align: 'right', shadow: K });
     if (it.id === 'settings') drawText('>', it.x + it.w - 8, ty, sel ? '#fff4e0' : '#8a8698', { align: 'right', shadow: K });
   });
@@ -661,6 +674,14 @@ function renderPause() {
   drawText(hint, VW / 2, VH - 16, '#8a8698', { align: 'center', shadow: K });
 }
 function movePause(d) { const n = pauseIds().length; G.psel = (G.psel + d + n) % n; SND.play('select'); }
+// keyboard ↑/↓: the nearest item in the row above/below (wraps); on the one-column main page this is the same as movePause
+function movePauseV(d) {
+  const its = pauseItems(), c = its[G.psel], cx = it => it.x + it.w / 2;
+  const near = list => list.sort((p, q) => Math.abs(p.y - c.y) - Math.abs(q.y - c.y) || Math.abs(cx(p) - cx(c)) - Math.abs(cx(q) - cx(c)))[0];
+  let to = near(its.filter(it => (it.y - c.y) * d > 0));
+  if (!to) { const ys = its.map(it => it.y), y = d > 0 ? Math.min(...ys) : Math.max(...ys); to = near(its.filter(it => it.y === y)); }
+  G.psel = its.indexOf(to); SND.play('select');
+}
 function pausePage(pg) { G.ppage = pg; G.psel = pg ? 0 : PAUSE_PAGES[0].indexOf('settings'); SND.play('select'); }
 const cycle = (list, v) => list[(list.indexOf(v) + 1) % list.length];
 function pauseAct(id) {
@@ -683,6 +704,8 @@ function pauseAct(id) {
     case 'padsize': setOpt('padSize', cycle(['s', 'm', 'l'], OPT.padSize)); SND.play('select'); break;
     case 'padalpha': setOpt('padAlpha', cycle(['s', 'm', 'l'], OPT.padAlpha)); SND.play('select'); break;
     case 'pixel': setOpt('pixel', pixMode() === 'tam' ? 'uydur' : 'tam'); SND.play('select'); break;
+    case 'ctrl': setOpt('ctrl', OPT.ctrl === 'pad' ? 'stick' : 'pad'); SND.play('select'); break;
+    case 'autorun': setOpt('autoRun', !OPT.autoRun); SND.play('select'); break;
   }
 }
 // B / X / Esc: back out of AYARLAR first, then resume
@@ -814,7 +837,8 @@ function tick() {
 const app = document.getElementById('app'), pad = document.getElementById('pad'), topBar = document.getElementById('top'), hintEl = document.getElementById('hint');
 // player settings from the AYARLAR page; pixel: null = automatic (see layout)
 const pick = (v, ok, d) => ok.includes(v) ? v : d;
-const OPT = { padSize: pick(store.get('padSize', 'm'), ['s', 'm', 'l'], 'm'), padAlpha: pick(store.get('padAlpha', 'm'), ['s', 'm', 'l'], 'm'), pixel: pick(store.get('pixel', null), ['tam', 'uydur'], null) };
+const OPT = { padSize: pick(store.get('padSize', 'm'), ['s', 'm', 'l'], 'm'), padAlpha: pick(store.get('padAlpha', 'm'), ['s', 'm', 'l'], 'm'), pixel: pick(store.get('pixel', null), ['tam', 'uydur'], null),
+  ctrl: pick(store.get('ctrl', 'pad'), ['pad', 'stick'], 'pad'), autoRun: store.get('autoRun', false) === true }; // ctrl: TUŞLAR (D-pad) or JOYSTICK; autoRun: always run speed
 function setOpt(k, v) { OPT[k] = v; store.set(k, v); layout(); }
 // [landscape, portrait]: landscape buttons float over the game, so they default a bit smaller and see-through
 const PAD_MUL = { s: [0.72, 0.8], m: [0.88, 0.92], l: [1.05, 1.1] };
@@ -873,8 +897,54 @@ function layout() {
   }
   padLook(portrait);
   pad.querySelectorAll('.cluster').forEach(c => c.classList.toggle('hide', !HAS_TOUCH));
+  layoutStick(W, portrait);
   if (cv.width !== VW) { cv.width = VW; cv.height = VH; }
   if (area && G.state === 'play') G.cam.x = clamp(G.cam.x, area.w * 16 < VW ? (area.w * 16 - VW) / 2 : 0, Math.max(0, area.w * 16 - VW));
+}
+
+// ---------- joystick (KONTROL: JOYSTICK) ----------
+// During play the D-pad gives way to #stickZone (left ~45% of the screen in landscape, the left part of the pad area in portrait,
+// never under the A/B cluster; the top buttons sit above it). A touch there spawns the stick base under the finger:
+// |dx| past the dead zone = left/right, |dx| past STICK.run = run (B not needed), a mostly-downward pull = down (duck / pipe).
+// Dragging past the rim drags the base along, so reversing direction reacts at once. Menus keep the D-pad.
+const STICK = { dead: 0.24, run: 0.7, down: 0.5, downCone: 1.2 };
+const stickZone = document.getElementById('stickZone'), stickEl = document.getElementById('stick'), stickKnob = stickEl.querySelector('.knob');
+let stick = null, stickR = 60, stickOn = false, stickRest = { x: 0, y: 0 };
+function layoutStick(W, portrait) {
+  stickOn = HAS_TOUCH && OPT.ctrl === 'stick' && !G.paused && (G.state === 'play' || G.state === 'dying');
+  const showPad = HAS_TOUCH && (OPT.ctrl !== 'stick' || G.paused || G.state === 'title');
+  pad.querySelector('.cluster.l').classList.toggle('hide', !showPad);
+  stickZone.classList.toggle('hide', !stickOn);
+  if (!stickOn && stick) { stick = null; updTouch(); }
+  const dp = parseFloat(pad.style.getPropertyValue('--dp')) || 140;
+  stickR = Math.round(dp * 0.42);
+  stickEl.style.setProperty('--r', stickR + 'px');
+  if (stickOn) {
+    const pr = pad.getBoundingClientRect(), ab = pad.querySelector('.cluster.r').getBoundingClientRect();
+    stickZone.style.width = Math.max(0, Math.min(W * (portrait ? 0.5 : 0.45), ab.left - pr.left - 12)) + 'px';
+    // where the idle stick waits: same height as the A/B cluster's middle, one radius in from the left edge
+    stickRest = { x: Math.round(Math.max(14 + stickR * 1.15, Math.min(ab.left - pr.left - 12, W * 0.45) * 0.42)), y: Math.round(ab.top + ab.height * 0.55 - pr.top) };
+  }
+  drawStick();
+}
+function stickInput(t) {
+  if (!stick) return;
+  const dx = stick.x - stick.bx, dy = stick.y - stick.by, R = stickR;
+  if (dy > R * STICK.down && dy > Math.abs(dx) * STICK.downCone) t.down = 1;
+  else if (Math.abs(dx) > R * STICK.dead) { t[dx < 0 ? 'left' : 'right'] = 1; if (Math.abs(dx) > R * STICK.run) t.run = 1; }
+}
+function drawStick() {
+  stickEl.classList.toggle('hide', !stickOn);
+  if (!stickOn) return;
+  const s = stick, bx = s ? s.bx : stickRest.x, by = s ? s.by : stickRest.y;
+  stickEl.style.transform = `translate(${bx}px,${by}px)`;
+  stickKnob.style.transform = s ? `translate(${s.x - s.bx}px,${s.y - s.by}px)` : '';
+  stickEl.classList.toggle('idle', !s); stickEl.classList.toggle('held', !!s); stickEl.classList.toggle('run', !!(s && input.touch.run));
+}
+function stickMove(x, y) {
+  const r = stick.pr, px = x - r.left, py = y - r.top, dx = px - stick.bx, dy = py - stick.by, d = Math.hypot(dx, dy);
+  if (d > stickR) { stick.bx += dx * (1 - stickR / d); stick.by += dy * (1 - stickR / d); }
+  stick.x = px; stick.y = py;
 }
 
 // ---------- touch pad ----------
@@ -887,10 +957,21 @@ function updTouch() {
     const b = el && el.closest ? el.closest('[data-k]') : null;
     if (b) t[b.dataset.k] = 1;
   }
+  stickInput(t);
   input.touch = t;
   for (const el of padBtns) el.classList.toggle('on', !!t[el.dataset.k]);
+  drawStick();
 }
 pad.addEventListener('pointerdown', e => {
+  if (e.target === stickZone) {
+    e.preventDefault();
+    try { stickZone.releasePointerCapture(e.pointerId); } catch (err) { }
+    if (stick) return; // one stick; extra fingers in the zone do nothing
+    const pr = pad.getBoundingClientRect(), x = e.clientX - pr.left, y = e.clientY - pr.top;
+    stick = { id: e.pointerId, pr, bx: x, by: y, x, y };
+    updTouch();
+    return;
+  }
   if (!e.target.closest('[data-k]')) return;
   e.preventDefault();
   try { e.target.releasePointerCapture(e.pointerId); } catch (err) { }
@@ -899,8 +980,11 @@ pad.addEventListener('pointerdown', e => {
   Object.assign(padTaps, input.touch); // latch: a tap shorter than a frame still counts in menus
   if (G.state !== 'play' || G.paused) G.tap = G.tap || { x: -99, y: -99, pad: true };
 });
-window.addEventListener('pointermove', e => { if (ptrs.has(e.pointerId)) { ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); updTouch(); } }, { passive: true });
-const ptrEnd = e => { if (ptrs.delete(e.pointerId)) updTouch(); };
+window.addEventListener('pointermove', e => {
+  if (ptrs.has(e.pointerId)) { ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); updTouch(); }
+  else if (stick && stick.id === e.pointerId) { stickMove(e.clientX, e.clientY); updTouch(); }
+}, { passive: true });
+const ptrEnd = e => { if (ptrs.delete(e.pointerId)) updTouch(); else if (stick && stick.id === e.pointerId) { stick = null; updTouch(); } };
 window.addEventListener('pointerup', ptrEnd); window.addEventListener('pointercancel', ptrEnd);
 cv.addEventListener('pointerdown', e => {
   e.preventDefault();
@@ -920,8 +1004,10 @@ window.addEventListener('keydown', e => {
   if (G.state === 'title' && !MUSIC.cur && SND.ctx) MUSIC.play('title');
   if (G.paused && !wipeBusy() && !e.repeat) { // pause menu: arrows move, Enter/Z/Space confirm, X goes back
     const c = e.code;
-    if (c === 'ArrowUp' || c === 'KeyW' || c === 'ArrowLeft') { movePause(-1); e.preventDefault(); return; }
-    if (c === 'ArrowDown' || c === 'KeyS' || c === 'ArrowRight') { movePause(1); e.preventDefault(); return; }
+    if (c === 'ArrowUp' || c === 'KeyW') { movePauseV(-1); e.preventDefault(); return; }
+    if (c === 'ArrowDown' || c === 'KeyS') { movePauseV(1); e.preventDefault(); return; }
+    if (c === 'ArrowLeft' || c === 'KeyA') { movePause(-1); e.preventDefault(); return; }
+    if (c === 'ArrowRight' || c === 'KeyD') { movePause(1); e.preventDefault(); return; }
     if (c === 'Enter' || c === 'KeyZ' || c === 'Space' || c === 'KeyK') { pauseAct(pauseIds()[G.psel]); e.preventDefault(); return; }
     if (c === 'KeyX' || c === 'KeyJ' || c === 'Backspace') { pauseBack(); e.preventDefault(); return; }
   }
@@ -933,7 +1019,7 @@ window.addEventListener('keydown', e => {
 });
 window.addEventListener('keyup', e => { const k = KEYMAP[e.code]; if (k) input.keys[k] = 0; });
 window.addEventListener('pagehide', saveBest);
-window.addEventListener('blur', () => { input.keys = {}; ptrs.clear(); updTouch(); pause(); });
+window.addEventListener('blur', () => { input.keys = {}; ptrs.clear(); stick = null; updTouch(); pause(); });
 document.addEventListener('visibilitychange', () => { if (document.hidden) { saveBest(); pause(); if (SND.ctx) SND.ctx.suspend(); } else if (SND.ctx) SND.ctx.resume(); });
 
 // ---------- top buttons ----------
@@ -974,7 +1060,7 @@ function loop(now) {
   render();
 }
 requestAnimationFrame(loop);
-window.__SB = { G, P, input, get area() { return area; }, LEVELS, beginPlay, newGame, tick, render, pauseItems, HAPTIC, spawnEntity, T, OPT, pixMode, layout };
+window.__SB = { G, P, input, get area() { return area; }, LEVELS, beginPlay, newGame, tick, render, pauseItems, HAPTIC, spawnEntity, T, OPT, pixMode, layout, STICK, get stick() { return stick && { ...stick, r: stickR }; } };
 Object.assign(window.__SB, { titleCards, modeToggle, taButtons, startTimeAttack, fmtTime, SWIM, SONGS, MAIN_LEVELS });
 })();
 </script>

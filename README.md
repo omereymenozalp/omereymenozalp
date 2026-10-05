@@ -21,6 +21,8 @@ Bütün içerik kodla üretilir:
 | Duraklat | ❚❚ | P / Esc |
 | Ses | 🔈 | M |
 
+**Ayarlar** (duraklat → AYARLAR): **KONTROL: TUŞLAR / JOYSTICK** — joystick seçilince yön tuşlarının yerine, ekranın sol tarafına dokununca parmağın altında beliren bir analog çubuk gelir (yana it: yürü, sonuna kadar it: koş, aşağı çek: eğil / boruya gir). **OTOMATİK KOŞU** açıkken hep koşarsın, B yalnızca ateş eder. Ayrıca titreşim, tuş boyutu / saydamlığı ve piksel ölçeği.
+
 Telefonu yan çevirince görüş alanı genişler. Dik tutunca kontroller ekranın altına konsol gibi yerleşir.
 
 ## Telefona uygulama olarak yükle
@@ -66,6 +68,7 @@ node tools/test/pause.mjs   # duraklatma menüsü + AYARLAR (tuş boyutu/saydaml
 node tools/test/fireball.mjs # ateş topu 2-8 kare uzaktaki yer düşmanlarını vuruyor mu
 node tools/test/sea.mjs     # gizli deniz bölümü: yüzme fiziği, deniz canlıları, kilit, baştan sona yüzen bot
 node tools/test/timeattack.mjs  # zamana karşı: mod anahtarı, kronometre, anında yeniden başlama, rekor kaydı
+node tools/test/controls.mjs  # joystick + otomatik koşu, gerçek çoklu dokunuşla (CDP), üç ekran boyutunda
 OUT=/tmp node tools/test/shot.mjs  # ekran görüntüleri
 ```
 

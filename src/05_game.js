@@ -47,14 +47,14 @@ function initArt() {
 // =====================================================================
 //  INPUT
 // =====================================================================
-const input = { left: 0, right: 0, down: 0, up: 0, a: 0, b: 0, aP: 0, bP: 0, start: 0, startP: 0, _pa: 0, _pb: 0, _ps: 0, keys: {}, touch: {} };
+const input = { left: 0, right: 0, down: 0, up: 0, a: 0, b: 0, run: 0, aP: 0, bP: 0, start: 0, startP: 0, _pa: 0, _pb: 0, _ps: 0, keys: {}, touch: {} };
 const KEYMAP = {
   ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right', ArrowDown: 'down', KeyS: 'down', ArrowUp: 'a', KeyW: 'a',
   Space: 'a', KeyZ: 'a', KeyK: 'a', KeyX: 'b', KeyJ: 'b', ShiftLeft: 'b', ShiftRight: 'b', Enter: 'start'
 };
 function pollInput() {
   const k = input.keys, t = input.touch;
-  for (const n of ['left', 'right', 'down', 'a', 'b', 'start']) input[n] = (k[n] || t[n]) ? 1 : 0;
+  for (const n of ['left', 'right', 'down', 'a', 'b', 'start', 'run']) input[n] = (k[n] || t[n]) ? 1 : 0; // run: joystick pushed far
   input.aP = input.a && !input._pa; input.bP = input.b && !input._pb; input.startP = input.start && !input._ps;
   input._pa = input.a; input._pb = input.b; input._ps = input.start;
 }
@@ -284,7 +284,7 @@ function playerControl() {
   if (I.left && !I.right) ax = -1; else if (I.right && !I.left) ax = 1;
   if (P.ducking && P.onGround) ax = 0;
   // underwater: no running, slower top speed (a bit faster while swimming than while wading on the floor)
-  const W = !!area.water, run = I.b && !W, max = W ? (P.onGround ? 1.1 : 1.35) : run ? 2.6 : 1.55;
+  const W = !!area.water, run = (I.b || I.run || OPT.autoRun) && !W, max = W ? (P.onGround ? 1.1 : 1.35) : run ? 2.6 : 1.55;
   P.skid = false;
   if (ax) {
     if (P.onGround && P.vx * ax < 0 && Math.abs(P.vx) > 0.6) {
