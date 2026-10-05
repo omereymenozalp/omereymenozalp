@@ -260,6 +260,8 @@ const SFX = {
   select: (S, t) => { S.tone(nf('A5'), t, 0.05, { duty: 0.5, vol: 0.1 }); S.tone(nf('E6'), t + 0.05, 0.08, { duty: 0.5, vol: 0.1 }); },
   checkpoint: (S, t) => { ['G5', 'B5', 'D6', 'G6'].forEach((x, i) => S.tone(nf(x), t + i * 0.07, 0.1, { duty: 0.125, vol: 0.12 })); },
   spring: (S, t) => S.tone(200, t, 0.25, { duty: 0.25, slide: 900, vol: 0.14, vib: true }),
+  crack: (S, t) => { S.noiseHit(t, 0.06, { freq: 5000, vol: 0.07 }); S.tone(2600, t, 0.04, { duty: 0.125, vol: 0.05 }); },
+  shatter: (S, t) => { S.noiseHit(t, 0.18, { freq: 4000, sweep: 9000, type: 'bandpass', vol: 0.18 }); [2093, 2637, 3136].forEach((f, i) => S.tone(f, t + i * 0.03, 0.06, { duty: 0.125, vol: 0.06 })); },
 };
 
 // ---------- music: compact step sequencer ----------
@@ -317,6 +319,31 @@ const SONGS = {
       harm: `B3:8 r:4 F#4:4 | B3:8 r:4 D4:4 | G4:4 F#4:4 D#4:4 B3:4 | A3:4 B3:4 C4:4 D4:4`,
       bass: `E2:2 E2:2 E3:2 E2:2 E2:2 E2:2 E3:2 E2:2 | E2:2 E2:2 E3:2 E2:2 E2:2 E2:2 E3:2 E2:2 | C2:2 C2:2 C3:2 C2:2 B1:2 B1:2 B2:2 B1:2 | A1:2 A2:2 B1:2 B2:2 C2:2 C3:2 D2:2 D3:2`,
       drum: `k:2 h:2 h:2 k:2 s:2 h:2 h:2 h:2 | k:2 h:2 h:2 k:2 s:2 h:2 h:2 h:2 | k:2 h:2 h:2 k:2 s:2 h:2 h:2 h:2 | k:2 s:2 k:2 s:2 k:2 s:2 s:1 s:1 s:2`
+    }
+  },
+  ice: {
+    bpm: 128, loop: true, tracks: {
+      lead: `B5:2 G5:2 E5:2 G5:2 B5:4 A5:2 G5:2 | F#5:2 D5:2 B4:2 D5:2 F#5:4 E5:2 D5:2 | E5:2 G5:2 B5:2 E6:2 D6:3 C6:1 B5:2 A5:2 | B5:4 F#5:4 G5:2 F#5:2 E5:4 |
+             C6:2 B5:2 A5:2 G5:2 A5:4 E5:4 | D6:2 C6:2 B5:2 A5:2 B5:4 F#5:4 | E6:3 D6:1 C6:2 B5:2 A5:2 G5:2 F#5:2 A5:2 | G5:2 F#5:2 D#5:2 F#5:2 E5:8`,
+      harm: `E6:1 B5:1 G5:1 B5:1 E6:1 B5:1 G5:1 B5:1 E6:1 B5:1 G5:1 B5:1 E6:1 B5:1 G5:1 B5:1 | D6:1 B5:1 F#5:1 B5:1 D6:1 B5:1 F#5:1 B5:1 D6:1 B5:1 F#5:1 B5:1 D6:1 B5:1 F#5:1 B5:1 |
+             E6:1 B5:1 G5:1 B5:1 E6:1 B5:1 G5:1 B5:1 E6:1 B5:1 G5:1 B5:1 E6:1 B5:1 G5:1 B5:1 | D#6:1 B5:1 F#5:1 B5:1 D#6:1 B5:1 F#5:1 B5:1 D#6:1 B5:1 F#5:1 B5:1 D#6:1 B5:1 F#5:1 B5:1 |
+             E6:1 C6:1 A5:1 C6:1 E6:1 C6:1 A5:1 C6:1 E6:1 C6:1 A5:1 C6:1 E6:1 C6:1 A5:1 C6:1 | D6:1 B5:1 F#5:1 B5:1 D6:1 B5:1 F#5:1 B5:1 D6:1 B5:1 F#5:1 B5:1 D6:1 B5:1 F#5:1 B5:1 |
+             E6:1 C6:1 G5:1 C6:1 E6:1 C6:1 G5:1 C6:1 D6:1 A5:1 F#5:1 A5:1 D6:1 A5:1 F#5:1 A5:1 | D#6:1 B5:1 F#5:1 B5:1 D#6:1 B5:1 F#5:1 B5:1 E6:1 B5:1 G5:1 B5:1 E6:4`,
+      bass: `E2:4 B2:4 E3:4 B2:4 | B1:4 F#2:4 B2:4 F#2:4 | E2:4 B2:4 E3:4 B2:4 | B1:4 D#2:4 F#2:4 B2:4 |
+             A1:4 E2:4 A2:4 E2:4 | B1:4 F#2:4 B2:4 F#2:4 | C2:4 G2:4 D2:4 A2:4 | B1:4 F#2:4 E2:8`,
+      drum: `k:4 h:2 h:2 s:4 h:2 h:2 | k:4 h:2 h:2 s:4 h:2 h:2 | k:4 h:2 h:2 s:4 h:2 h:2 | k:4 h:2 h:2 s:4 h:2 h:2 |
+             k:4 h:2 h:2 s:4 h:2 h:2 | k:4 h:2 h:2 s:4 h:2 h:2 | k:4 h:2 h:2 s:4 h:2 h:2 | k:4 h:2 h:2 s:2 s:2 s:2 h:2`
+    }
+  },
+  desert: {
+    bpm: 132, loop: true, tracks: {
+      lead: `E5:2 F5:1 G#5:1 A5:2 G#5:2 F5:2 E5:2 r:4 | A5:2 B5:1 C6:1 B5:2 A5:2 G#5:2 A5:2 r:4 | B5:2 C6:2 D6:2 C6:1 B5:1 A5:2 G#5:2 F5:2 G#5:2 | A5:1 G#5:1 F5:2 E5:4 F5:1 E5:1 D5:2 E5:4 |
+             E6:2 D6:1 C6:1 B5:2 C6:2 A5:4 r:4 | D6:2 C6:1 B5:1 A5:2 B5:2 G#5:4 r:4 | C6:2 B5:2 A5:2 G#5:2 F5:2 G#5:2 A5:2 B5:2 | G#5:2 F5:2 E5:12`,
+      harm: `E4:8 G#4:8 | A4:8 C5:8 | D5:8 B4:8 | F4:8 E4:8 | A4:8 C5:8 | F4:8 E4:8 | A4:8 D5:8 | B4:4 G#4:4 E4:8`,
+      bass: `E2:3 E2:1 r:2 E3:2 E2:2 r:2 B2:2 E2:2 | A2:3 A2:1 r:2 A3:2 A2:2 r:2 E3:2 A2:2 | D2:3 D2:1 r:2 D3:2 D2:2 r:2 A2:2 D2:2 | F2:3 F2:1 r:2 F3:2 E2:2 r:2 B2:2 E2:2 |
+             A2:3 A2:1 r:2 A3:2 A2:2 r:2 E3:2 A2:2 | D2:3 D2:1 r:2 D3:2 E2:2 r:2 B2:2 E2:2 | A2:3 A2:1 r:2 A3:2 D2:2 r:2 A2:2 D2:2 | E2:3 E2:1 r:2 E3:2 E2:4 B1:2 E2:2`,
+      drum: `k:3 h:1 s:2 h:2 k:2 k:2 s:2 h:1 h:1 | k:3 h:1 s:2 h:2 k:2 k:2 s:2 h:1 h:1 | k:3 h:1 s:2 h:2 k:2 k:2 s:2 h:1 h:1 | k:3 h:1 s:2 h:2 k:2 k:2 s:2 h:1 h:1 |
+             k:3 h:1 s:2 h:2 k:2 k:2 s:2 h:1 h:1 | k:3 h:1 s:2 h:2 k:2 k:2 s:2 h:1 h:1 | k:3 h:1 s:2 h:2 k:2 k:2 s:2 h:1 h:1 | k:2 s:1 s:1 k:2 s:2 k:2 s:1 s:1 s:2 s:2`
     }
   },
   star: {

@@ -408,11 +408,106 @@ function makeSpring() {
   }
   return fr;
 }
+// --- ice & desert creatures (drawn facing left, like the others) ---
+function makePenguin() {
+  const BODY = '#2a3458', DARK = '#1a2040', WH = '#f4f8ff', OR = '#ffa82e', SC = '#e4572e';
+  const walk = [];
+  for (let f = 0; f < 2; f++) {
+    const p = new Pix(16, 16);
+    p.ell(8.5, 10, 5.5, 5.6, BODY);
+    p.ell(7.2, 11, 3.4, 4, WH);
+    p.ell(8.5, 4.8, 4, 3.6, BODY);
+    p.ell(6.6, 5.4, 2.2, 2, WH);
+    p.px(6, 4, K); p.px(6, 5, K); p.px(7, 4, '#ffffff');
+    p.rect(2, 5, 3, 2, OR); p.px(2, 6, '#c8741a');
+    p.rect(4, 8, 9, 2, SC); p.rect(11, 10, 2, 2 + f, SC); p.paint((x, y) => y === 8 && p.get(x, y) === c32(SC), '#ff8a5a');
+    p.ell(13.2, 11.5 - f, 1.4, 2.8, DARK);
+    for (const x of f ? [5, 9] : [6, 10]) p.rect(x, 15, 3, 1, OR);
+    p.outline(K);
+    walk.push(withFlip(p.canvas()));
+  }
+  const s = new Pix(16, 16);
+  s.ell(9.5, 11.5, 6.2, 3.6, BODY);
+  s.ell(9.5, 13.2, 5, 1.8, WH);
+  s.ell(4, 10.5, 3, 3, BODY);
+  s.ell(3.4, 11.4, 1.8, 1.5, WH);
+  s.px(3, 10, K); s.rect(0, 11, 2, 1, OR);
+  s.rect(6, 8, 2, 6, SC); s.rect(8, 7, 3, 1, SC);
+  s.ell(10, 9, 3, 1, DARK);
+  s.rect(15, 10, 1, 2, OR);
+  s.outline(K);
+  const slide = withFlip(s.canvas());
+  return { walk, slide, dead: flipV(walk[0][0]) };
+}
+function makeScorpion() {
+  const B = '#d8822e', D = '#a8561a', L = '#f0b060';
+  const walk = [];
+  for (let f = 0; f < 2; f++) {
+    const p = new Pix(16, 16);
+    for (const [x, y] of [[13.4, 11], [14.6, 9], [14.6, 7], [13.6, 5.2], [11.8, 4.2], [10, 4.4]]) p.ell(x, y, 1.5, 1.4, B);
+    p.px(14, 9, L); p.px(13, 5, L);
+    p.rect(8, 5, 2, 2, '#4a2010'); p.px(8, 7, '#4a2010');
+    p.ell(9.2, 12, 4.6, 2.6, B);
+    p.paint((x, y) => y >= 10 && y <= 13 && x > 5 && x % 3 === 1, D);
+    p.paint((x, y) => y === 10 && x > 5 && x < 13, L);
+    p.ell(4.6, 12, 2.4, 2.2, B);
+    p.px(4, 11, K); p.px(3, 11, '#ffffff');
+    p.rect(2, 10 - f, 2, 1, B);
+    p.ell(1.6, 9.2 - f, 1.6, 1.4, L); p.px(0, 9 - f, 0);
+    p.rect(2, 13, 2, 1, B); p.ell(1.4, 13.2, 1.4, 1.2, L);
+    for (const x of f ? [6, 9, 12] : [5, 8, 11]) { p.px(x, 14, '#6a3010'); p.px(x + (f ? -1 : 1), 15, '#6a3010'); }
+    p.outline(K);
+    walk.push(withFlip(p.canvas()));
+  }
+  return { walk, dead: flipV(walk[0][0]) };
+}
+function makeTumbleweed() {
+  const fr = [];
+  for (let f = 0; f < 4; f++) {
+    const p = new Pix(16, 16), a0 = -f * Math.PI / 8;
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const dx = x + .5 - 8, dy = y + .5 - 8.5, r = Math.hypot(dx, dy);
+      if (r > 7.2) continue;
+      const ang = Math.atan2(dy, dx) + a0;
+      const v1 = Math.sin(ang * 5 + r * 1.25), v2 = Math.sin(ang * 3 - r * 1.6 + 1);
+      if (Math.abs(v1) < 0.3) p.px(x, y, r < 3.5 ? '#8a6428' : '#c49a52');
+      else if (Math.abs(v2) < 0.22) p.px(x, y, '#a8803c');
+      else if (r > 6.2 && hash(x, y) < 0.5) p.px(x, y, '#c49a52');
+    }
+    p.paint((x, y) => !p.get(x - 1, y - 1) && y < 9, '#ecc87a');
+    p.outline('#4a3418');
+    fr.push(p.canvas());
+  }
+  return { roll: fr, dead: flipV(fr[0]) };
+}
+function makeIcicle() {
+  const p = new Pix(16, 16);
+  p.rect(3, 0, 10, 2, '#e8f6ff'); p.rect(3, 0, 10, 1, '#ffffff');
+  for (let y = 2; y < 16; y++) {
+    const half = 3.6 * (1 - (y - 2) / 14.5);
+    for (let x = 0; x < 16; x++) {
+      const dx = x + .5 - 8;
+      if (Math.abs(dx) <= half + 0.3) p.px(x, y, dx < -half * 0.35 ? '#f4fcff' : dx > half * 0.35 ? '#5aa8e0' : '#a8e0fc');
+    }
+  }
+  p.outline('#1e3a78');
+  return p.canvas();
+}
+function makeSandSlab() {
+  const p = new Pix(32, 10);
+  p.rect(0, 0, 32, 10, K);
+  p.rect(1, 1, 30, 8, '#d89a50');
+  p.rect(1, 1, 30, 2, '#f8d890');
+  p.rect(1, 8, 30, 1, '#a86a30');
+  p.rect(11, 3, 1, 5, '#a86a30'); p.rect(21, 3, 1, 5, '#a86a30');
+  for (let x = 1; x < 31; x++) for (let y = 3; y < 8; y++) if (hash(x + 9, y + 31) < 0.1) p.px(x, y, '#f0c070');
+  return p.canvas();
+}
 
 // ---------- tiles ----------
-const T = { EMPTY: 0, GROUND: 1, BRICK: 2, Q: 3, USED: 4, SOLID: 5, PTL: 6, PTR: 7, PL: 8, PR: 9, SEMI: 10, BRIDGE: 11, LAVA: 12, COIN: 13, HIDDEN: 14, CASTLE: 15, TRUNK: 16, CLOUD: 17 };
+const T = { EMPTY: 0, GROUND: 1, BRICK: 2, Q: 3, USED: 4, SOLID: 5, PTL: 6, PTR: 7, PL: 8, PR: 9, SEMI: 10, BRIDGE: 11, LAVA: 12, COIN: 13, HIDDEN: 14, CASTLE: 15, TRUNK: 16, CLOUD: 17, ICE: 18, QSAND: 19 };
 const SOLID_ID = new Uint8Array(32);
-for (const id of [1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 15, 17]) SOLID_ID[id] = 1;
+for (const id of [1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 15, 17, 18]) SOLID_ID[id] = 1;
 
 const THEMES = {
   over: {
@@ -435,6 +530,16 @@ const THEMES = {
     brick: ['#8a8a9a', '#3a3648', '#c4c0d4'], solid: ['#6a6678', '#2a2638', '#a4a0b4'], semi: ['#8a5a2a', '#4a2a10', '#c08a50'],
     music: 'castle'
   },
+  ice: {
+    grass: ['#eef6ff', '#a8c4e4', '#ffffff'], dirt: ['#5a6ea8', '#3a4a80', '#8aa0d0'],
+    brick: ['#7ab8e8', '#2a5a98', '#d8f4ff'], solid: ['#a8dcf8', '#4a88c0', '#f0fbff'], semi: ['#e8f6ff', '#7aa8d8', '#ffffff'],
+    music: 'ice'
+  },
+  desert: {
+    grass: ['#f4d080', '#d0a050', '#fff0b8'], dirt: ['#d89a50', '#a86a30', '#f0c078'],
+    brick: ['#e8b060', '#9a5a20', '#ffe0a0'], solid: ['#d8a058', '#8a5420', '#f8d090'], semi: ['#2bb3a0', '#1a6d60', '#8af0d8'],
+    music: 'desert'
+  },
 };
 function tileArt(theme) {
   const th = THEMES[theme], out = {};
@@ -448,6 +553,8 @@ function tileArt(theme) {
   }
   if (theme === 'castle') { gfill.rect(0, 0, 16, 1, dirt.d); gfill.rect(0, 8, 16, 1, dirt.d); gfill.rect(0, 0, 1, 8, dirt.d); gfill.rect(8, 8, 1, 8, dirt.d); gfill.rect(1, 1, 15, 1, dirt.l); gfill.rect(0, 9, 8, 1, dirt.l); gfill.rect(9, 9, 7, 1, dirt.l); }
   if (theme === 'cave') { for (let i = 0; i < 3; i++) { const x = (hash(i, 9) * 14) | 0, y = (hash(i, 4) * 14) | 0; gfill.px(x, y, '#8af0ff'); } }
+  if (theme === 'desert') for (let x = 0; x < 16; x++) { gfill.px(x, 5 + ((x >> 2) % 2), dirt.d); gfill.px(x, 12 + (x % 7 === 3 ? 1 : 0), dirt.l); }
+  if (theme === 'ice') { for (let i = 0; i < 4; i++) { const x = (hash(i, 19) * 15) | 0, y = (hash(i, 23) * 15) | 0; gfill.px(x, y, '#c8ecff'); gfill.px(x + 1, y, '#a8c8f0'); } }
   out.gfill = gfill.canvas();
   const gtop = new Pix(16, 16);
   gtop.d.set(gfill.d);
@@ -457,6 +564,8 @@ function tileArt(theme) {
       const depth = 4 + (hash(x, 1) < 0.35 ? 1 : 0) + (x % 5 === 2 ? 1 : 0);
       for (let y = 0; y < depth; y++) gtop.px(x, y, y === 0 ? grass.l : y === depth - 1 ? grass.d : grass.b);
       if (hash(x, 2) < 0.25) gtop.px(x, 1, grass.l);
+      if (theme === 'ice' && (x === 3 || x === 11)) { gtop.px(x, depth, grass.d); gtop.px(x, depth + 1, '#c8ecff'); if (x === 11) gtop.px(x, depth + 2, '#c8ecff'); }
+      if (theme === 'desert' && hash(x, 5) < 0.2) gtop.px(x, 2, grass.d);
     }
   }
   out.gtop = gtop.canvas();
@@ -577,12 +686,36 @@ function tileArt(theme) {
     }
     out.lavaTop.push(p.canvas()); out.lava.push(q.canvas());
   }
+  // slippery ice block
+  const ic = new Pix(16, 16);
+  ic.rect(0, 0, 16, 16, '#8ccff4');
+  ic.paint((x, y) => (x - y + 32) % 13 < 2 && y > 2 && y < 14, '#d8f4ff');
+  ic.paint((x, y) => (x - y + 32) % 13 === 2 && y > 2 && y < 14, '#f4fcff');
+  ic.rect(0, 0, 16, 2, '#f4fcff'); ic.rect(0, 2, 16, 1, '#c8ecff');
+  ic.rect(0, 14, 16, 2, '#5a9ad8'); ic.rect(15, 2, 1, 12, '#6aaae0');
+  ic.px(4, 9, '#5a9ad8'); ic.px(5, 10, '#5a9ad8'); ic.px(5, 11, '#5a9ad8'); ic.px(11, 6, '#6aaae0');
+  ic.rect(0, 15, 16, 1, '#3a6aa8');
+  out.ice = ic.canvas();
+  // quicksand frames
+  out.qsandTop = []; out.qsand = [];
+  for (let f = 0; f < 4; f++) {
+    const p = new Pix(16, 16), q = new Pix(16, 16);
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const sw = Math.sin((x * 0.7 + y * 1.3) + f * Math.PI / 2), n = hash(x + f * 5, y + 60);
+      const col = sw > 0.72 ? '#8e5020' : sw > 0.45 ? '#a86630' : n < 0.07 ? '#e0a050' : '#c07a38';
+      q.px(x, y, col);
+      const w = Math.round(Math.sin((x + f * 4) / 16 * Math.PI * 2) * 1.2);
+      if (y >= 5 + w) p.px(x, y, y === 5 + w ? '#f0b868' : y === 6 + w ? '#d08c44' : col);
+    }
+    for (const [bx, by] of [[4, 10], [11, 8]]) { const r = (f + bx) % 4; if (r < 3) { p.px(bx, by - r, '#e8a858'); p.px(bx + 1, by - r, '#7a4418'); } }
+    out.qsandTop.push(p.canvas()); out.qsand.push(q.canvas());
+  }
   return out;
 }
 
 // ---------- background decor ----------
 function makeBush(w, theme) {
-  const cols = theme === 'cave' ? ['#2bb3a0', '#1a6d60', '#8af0d8'] : ['#4ab83c', '#2a7a2a', '#9ae86a'];
+  const cols = theme === 'cave' ? ['#2bb3a0', '#1a6d60', '#8af0d8'] : theme === 'ice' ? ['#d8ecfc', '#7a9ccc', '#ffffff'] : theme === 'desert' ? ['#a8a848', '#6a6a24', '#d8d878'] : ['#4ab83c', '#2a7a2a', '#9ae86a'];
   const p = new Pix(w, 18);
   const n = Math.max(2, Math.round(w / 12));
   for (let i = 0; i < n; i++) { const cx = 8 + i * (w - 16) / (n - 1 || 1); p.ell(cx, 11, 7, 7 - (i % 2) * 1.5, cols[0]); }
@@ -693,6 +826,68 @@ function makeSign() {
   return p.canvas();
 }
 
+function makePine() {
+  const p = new Pix(24, 44);
+  p.rect(10, 34, 4, 10, '#6a4a2a'); p.rect(10, 34, 1, 10, '#8a6a4a');
+  for (let i = 3; i >= 0; i--) {
+    const y0 = 1 + i * 8, y1 = y0 + 12, w = 4 + i * 2.6;
+    for (let y = y0; y <= y1; y++) {
+      const hw = (y - y0) / (y1 - y0) * w;
+      for (let x = Math.round(12 - hw); x <= Math.round(11 + hw); x++) p.px(x, y, x > 12 + hw * 0.25 ? '#1e5a52' : '#2e7a68');
+    }
+  }
+  p.paint((x, y) => !p.get(x, y - 1) || (!p.get(x, y - 2) && hash(x, y) < 0.6), '#f4faff');
+  p.paint((x, y) => y > 2 && p.get(x, y - 1) === c32('#f4faff') && p.get(x, y) !== c32('#f4faff') && hash(x, y + 3) < 0.4, '#c8dcf0');
+  p.outline(K);
+  return p.canvas();
+}
+function makeSnowman() {
+  const p = new Pix(20, 27);
+  p.ell(10, 20, 7, 6.5, '#f4faff'); p.ell(10, 11.5, 5, 4.6, '#f4faff'); p.ell(10, 5, 3.8, 3.6, '#f4faff');
+  p.paint((x, y) => (x - 10) * 0.7 + (y % 9) * 0.25 > 3.2, '#c8dcf0');
+  p.rect(6, 0, 8, 2, '#3a3648'); p.rect(7, 0, 6, 1, '#5a5668');
+  p.px(8, 4, K); p.px(11, 4, K); p.rect(12, 6, 3, 1, '#ff8a2a'); p.px(12, 5, '#ff8a2a');
+  p.rect(6, 8, 9, 2, '#e4572e'); p.rect(12, 10, 2, 3, '#e4572e');
+  p.px(10, 12, K); p.px(10, 15, K); p.px(10, 19, K);
+  for (let i = 0; i < 4; i++) { p.px(4 - i, 11 - i, '#6a4a2a'); p.px(16 + i, 11 - i, '#6a4a2a'); }
+  p.px(1, 7, '#6a4a2a'); p.px(19, 7, '#6a4a2a');
+  p.outline(K);
+  return p.canvas();
+}
+function makeCactus(h, arms) {
+  const p = new Pix(18, h);
+  const G = '#4aa84a';
+  p.rect(6, 3, 6, h - 3, G); p.ell(9, 3.5, 3, 3, G);
+  if (arms > 0) { const y = Math.round(h * 0.5); p.rect(2, y, 4, 3, G); p.rect(2, y - 6, 3, 7, G); p.ell(3.5, y - 6, 1.6, 1.6, G); }
+  if (arms > 1) { const y = Math.round(h * 0.36); p.rect(12, y, 4, 3, G); p.rect(13, y - 5, 3, 8, G); p.ell(14.5, y - 5, 1.6, 1.6, G); }
+  p.paint((x, y) => x === 8 || x === 10 || (x === 3 || x === 14) && y < h - 2, '#2f8a3a');
+  p.paint((x, y) => x === 6 || x === 2 || x === 13, '#8ad86a');
+  p.paint((x, y) => x === 11 || x === 15, '#2f8a3a');
+  p.paint((x, y) => (x + y * 3) % 7 === 0 && hash(x, y) < 0.5, '#e8f0c0');
+  p.px(9, 0, '#ff6aa8'); p.px(8, 1, '#ff6aa8'); p.px(10, 1, '#ff6aa8'); p.px(9, 1, '#ffd84a');
+  p.outline(K);
+  return p.canvas();
+}
+function makeRock() {
+  const p = new Pix(18, 9);
+  p.ell(8, 9, 7, 6.5, '#b8875a'); p.ell(13, 9, 4, 4, '#a87a4a');
+  p.paint((x, y) => !p.get(x, y - 1), '#e0b080');
+  p.paint((x, y) => hash(x, y + 9) < 0.12, '#8a6038');
+  p.outline(K);
+  return p.canvas();
+}
+function makePyrWall() {
+  const p = new Pix(16, 16);
+  p.rect(0, 0, 16, 16, '#7a4a22');
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+    const off = (y >> 2) % 2 ? 4 : 0;
+    if (y % 4 === 3 || (x + off) % 8 === 7) p.px(x, y, '#4a2a12');
+    else if (y % 4 === 0) p.px(x, y, '#8a5a2a');
+  }
+  p.px(3, 9, '#c8a050'); p.px(4, 9, '#c8a050'); p.px(3, 10, '#c8a050'); p.px(11, 1, '#c8a050'); p.px(12, 2, '#c8a050');
+  return p.canvas();
+}
+
 // ---------- parallax layers ----------
 function bandGradient(stops, h = VH) {
   const c = mkCanvas(1, h), g = c.getContext('2d');
@@ -758,6 +953,61 @@ function makeLayers(theme) {
       g.drawImage(base.canvas(), 0, f > 0.3 ? 0 : -30);
       L.push({ img: c, f, y: 0, drift: f * 0.15 });
     }
+  } else if (theme === 'ice') {
+    L.sky = bandGradient(['#203c88', '#4a74c0', '#8cb8e8', '#d8ecff']);
+    const tri = t => 1 - Math.abs((((t % 1) + 1) % 1) * 2 - 1);
+    // aurora curtains
+    const au = new Pix(W, 110);
+    for (let x = 0; x < W; x++) {
+      const t = x / W * Math.PI * 2, c = 22 + Math.sin(t * 3) * 10 + Math.sin(t * 8 + 1) * 4, len = 26 + Math.sin(t * 5 + 2) * 10;
+      for (let y = Math.round(c); y < c + len; y++) {
+        const k = (y - c) / len, a = Math.round((1 - k) * 6) / 6 * (0.32 + 0.12 * Math.sin(x / 3)) * 255;
+        if (a > 8) au.px(x, y, (k < 0.2 ? '#b8ffe0' : '#6af0c0') + Math.round(a).toString(16).padStart(2, '0'));
+      }
+    }
+    for (let i = 0; i < 50; i++) au.px((hash(i, 31) * W) | 0, (hash(i, 32) * 90) | 0, hash(i, 33) < 0.3 ? '#ffffff' : '#c8dcff');
+    L.push({ img: au.canvas(), f: 0.06, y: 0 });
+    // far snowy peaks
+    const m = new Pix(W, VH);
+    const mh = x => 46 + tri(x * 3 / W) * 58 + tri(x * 7 / W + .3) * 20 + tri(x * 19 / W + .7) * 6;
+    for (let x = 0; x < W; x++) {
+      const h = mh(x), shade = mh(x + 1) < h, top = Math.round(VH - 52 - h), snow = top + Math.max(3, (h - 55) * 0.55);
+      for (let y = top; y < VH; y++) m.px(x, y, y < snow ? (shade ? '#c4d8f2' : '#f4faff') : (shade ? '#6a88c4' : '#88a8dc'));
+    }
+    L.push({ img: m.canvas(), f: 0.15, y: 0 });
+    // near snow hills with pines
+    const hl = new Pix(W, VH);
+    const hh = x => { const t = x / W * Math.PI * 2; return 30 + Math.sin(t * 3 + 2) * 12 + Math.sin(t * 7) * 5; };
+    for (let x = 0; x < W; x++) {
+      const top = Math.round(VH - 22 - hh(x));
+      for (let y = top; y < VH; y++) hl.px(x, y, y < top + 2 ? '#ffffff' : y > top + 17 || (y > top + 14 && (x + y) % 2) ? '#d0e0f4' : '#e2eefc');
+    }
+    for (let i = 0; i < 24; i++) {
+      const x = (hash(i, 71) * W) | 0, base = Math.round(VH - 22 - hh(x)) + 4, ht = 12 + ((hash(i, 72) * 10) | 0);
+      for (let y = 0; y < ht; y++) { const hw = (y + 2) * 0.33; for (let dx = -Math.round(hw); dx <= Math.round(hw); dx++) hl.px(x + dx, base - ht + y, y < 2 || (y % 4 === 0 && Math.abs(dx) > hw - 1.5) ? '#f4faff' : dx > 0 ? '#2e5a8a' : '#3e6e9e'); }
+      hl.rect(x, base, 1, 3, '#4a3a3a');
+    }
+    L.push({ img: hl.canvas(), f: 0.35, y: 0 });
+  } else if (theme === 'desert') {
+    L.sky = bandGradient(['#ee8250', '#f8a868', '#ffd498', '#fff0c8']);
+    const sun = new Pix(W, VH);
+    sun.ell(360, 64, 34, 34, '#ffe8a8'); sun.ell(360, 64, 29, 29, '#fff4c8'); sun.ell(360, 64, 25, 25, '#fffbe8');
+    L.push({ img: sun.canvas(), f: 0.05, y: 0 });
+    // far pyramids on the horizon
+    const fp = new Pix(W, VH), base = VH - 62;
+    for (const [cx, sz] of [[70, 46], [128, 30], [300, 58], [372, 34], [452, 22]]) {
+      for (let y = 0; y <= sz; y++) for (let dx = -y; dx <= y; dx++) fp.px(cx + dx, base - sz + y, dx > 0 ? '#c88a58' : (y % 6 === 5 ? '#d89a64' : '#e8b07a'));
+    }
+    for (let x = 0; x < W; x++) for (let y = base; y < VH; y++) fp.px(x, y, y === base ? '#f0c088' : '#e8b276');
+    L.push({ img: fp.canvas(), f: 0.15, y: 0 });
+    // rolling dunes
+    const du = new Pix(W, VH);
+    const dh = x => { const t = x / W * Math.PI * 2; return 34 + Math.sin(t * 2 + 1) * 13 + Math.sin(t * 5) * 6; };
+    for (let x = 0; x < W; x++) {
+      const h = dh(x), top = Math.round(VH - 18 - h), shade = dh(x + 1) < h;
+      for (let y = top; y < VH; y++) du.px(x, y, y < top + 2 ? '#fde4a8' : shade ? '#d8a05a' : (hash(x >> 2, y >> 1) < 0.05 ? '#d8a868' : '#eebe7a'));
+    }
+    L.push({ img: du.canvas(), f: 0.4, y: 0 });
   } else {
     L.sky = bandGradient(['#0a0610', '#1a0c18', '#2a1018']);
     const w = new Pix(W, VH);

@@ -41,6 +41,8 @@ function builder(A) {
           case 'X': set(X, y, T.CASTLE); break;
           case 'L': set(X, y, T.LAVA); break;
           case 'u': set(X, y, T.USED); break;
+          case 'I': set(X, y, T.ICE); break;
+          case '~': set(X, y, T.QSAND); break;
           case '.': set(X, y, T.EMPTY); break;
         }
       }
@@ -62,6 +64,9 @@ function builder(A) {
     e(type, x, y, o = {}) { A.spawns.push({ type, x, y, ...o }); return api; },
     plat(x, y, o) { A.spawns.push({ type: 'plat', x, y, ...o }); return api; },
     fall(x, y, w = 2) { A.spawns.push({ type: 'fallplat', x, y, w }); return api; },
+    ice(x0, x1, y = 13) { return api.fill(x0, y, x1, y, T.ICE); },
+    qsand(x0, x1) { return api.fill(x0, 13, x1, 14, T.QSAND); },
+    sink(x, y, w = 2) { A.spawns.push({ type: 'sinkplat', x, y, w }); return api; },
     flag(x) { A.flag = { x }; set(x, 12, T.SOLID); return api; },
     castle(x) { A.castle = { x }; return api; },
   };
@@ -90,6 +95,25 @@ function autoDecor(A, seed) {
         }
       }
       x += 3 + ((r() * 7) | 0);
+    }
+  }
+  if (th === 'ice' || th === 'desert') {
+    let x = 3;
+    while (x < A.w - 4) {
+      const gy = groundTopAt(x);
+      if (gy > 0 && groundTopAt(x + 1) === gy && groundTopAt(x + 2) === gy) {
+        const k = r();
+        if (th === 'ice') {
+          if (k < 0.32) { A.decor.push({ k: 'pine', x: x * 16 - 4, y: gy * 16 + 1 }); x += 2; }
+          else if (k < 0.44) { A.decor.push({ k: 'snowman', x: x * 16, y: gy * 16 + 1 }); x += 2; }
+          else if (k < 0.72) { A.decor.push({ k: 'bush' + [32, 40][(r() * 2) | 0], x: x * 16, y: gy * 16 }); x += 3; }
+        } else {
+          if (k < 0.4) { A.decor.push({ k: 'cactus' + ((r() * 2) | 0), x: x * 16 - 1, y: gy * 16 + 1 }); x += 2; }
+          else if (k < 0.58) { A.decor.push({ k: 'rock', x: x * 16, y: gy * 16 + 1 }); x += 2; }
+          else if (k < 0.72) { A.decor.push({ k: 'bush32', x: x * 16, y: gy * 16 }); x += 3; }
+        }
+      }
+      x += 3 + ((r() * 6) | 0);
     }
   }
   if (th === 'castle') {
@@ -219,7 +243,102 @@ const LEVELS = [
     }
   },
   {
-    id: '1-4', name: 'EJDER KALESİ', time: 300, make() {
+    id: '1-4', name: 'BUZ GEÇİDİ', time: 300, make() {
+      const A = newArea('ice', 200), b = builder(A);
+      b.ground(0, 30).ground(34, 63).ground(67, 100).ground(104, 142).ground(146, 199);
+      A.decor.push({ k: 'sign', x: 6 * 16, y: 13 * 16 });
+      // warm-up: first slippery patch
+      b.row(10, 9, '?');
+      b.row(14, 9, 'B?BMB');
+      b.ice(20, 27).coins(21, 10, 5);
+      b.e('penguin', 25, 12);
+      // icicle hall
+      b.row(38, 6, 'BBBB?BBBBBBBBB');
+      b.e('icicle', 40, 7).e('icicle', 43, 7).e('icicle', 47, 7).e('icicle', 50, 7);
+      b.ice(41, 52).coins(44, 10, 3);
+      b.e('penguin', 56, 12);
+      b.row(58, 9, 'B?B');
+      // snowy ledges + hidden 1UP
+      b.row(69, 10, '====');
+      b.row(74, 8, '====').coins(74, 7, 4);
+      b.row(77, 4, 'H');
+      b.row(80, 6, '====').coins(80, 4, 4);
+      b.e('spiky', 78, 12);
+      b.ice(87, 97);
+      b.e('penguin', 91, 12).e('penguin', 96, 12);
+      // checkpoint, star, long ice run with icicles
+      b.row(108, 9, 'S');
+      b.row(112, 9, 'BBB');
+      b.e('icicle', 112, 10).e('icicle', 114, 10);
+      b.ice(111, 138);
+      b.row(121, 9, 'BBBB'); b.row(123, 5, '?M?');
+      b.e('penguin', 119, 12).e('penguin', 127, 12).e('spiky', 131, 12).e('penguin', 135, 12);
+      b.row(130, 6, 'BBBBB');
+      b.e('icicle', 130, 7).e('icicle', 132, 7).e('icicle', 134, 7);
+      // finale
+      b.e('penguin', 152, 12);
+      b.row(155, 9, 'B?B?B');
+      b.ice(159, 168);
+      b.e('spiky', 164, 12).e('penguin', 167, 12);
+      b.stairs(172, 8, 1); b.fill(180, 5, 180, 12, T.SOLID);
+      b.flag(189); b.castle(193);
+      autoDecor(A, 55);
+      return { areas: [A], start: { area: 0, x: 3, y: 12 }, checkpoint: 105 };
+    }
+  },
+  {
+    id: '1-5', name: 'KUM ÇÖLÜ', time: 300, make() {
+      const A = newArea('desert', 206), b = builder(A);
+      b.ground(0, 26);
+      A.decor.push({ k: 'sign', x: 6 * 16, y: 13 * 16 });
+      b.row(10, 9, '?');
+      b.row(14, 9, 'B?BMB'); b.row(16, 5, '?');
+      b.e('scorpion', 22, 12);
+      // first quicksand pit with a sinking slab
+      b.qsand(27, 30).sink(28, 11);
+      b.ground(31, 64);
+      b.row(36, 9, '?B?');
+      b.e('tumble', 44, 11);
+      b.e('scorpion', 48, 12).e('scorpion', 51, 12);
+      b.row(55, 8, '=====').coins(55, 7, 5);
+      b.row(58, 4, 'H');
+      b.e('tumble', 62, 11);
+      // the pyramid: climb over it or take the tunnel through its treasure room
+      b.ground(65, 100);
+      for (let y = 4; y <= 12; y++) { const k = 12 - y; b.fill(66 + k, y, 92 - k, y, T.SOLID); }
+      const hollow = [];
+      for (let x = 68; x <= 90; x++) for (let y = 9; y <= 10; y++) hollow.push([x, y]);
+      for (let x = 73; x <= 85; x++) for (let y = 7; y <= 8; y++) hollow.push([x, y]);
+      for (const [x, y] of hollow) {
+        b.set(x, y, T.EMPTY);
+        if (x >= 68 + (y < 9 ? 5 : 1) && x <= 90 - (y < 9 ? 5 : 1)) A.decor.push({ k: 'pyrwall', x: x * 16, y: (y + 1) * 16 });
+      }
+      b.row(76, 6, '??C??');
+      b.coins(75, 8, 9);
+      b.e('scorpion', 82, 10);
+      b.coins(76, 3, 7);
+      // checkpoint, then a quicksand field with stepping slabs
+      b.e('scorpion', 97, 12);
+      b.qsand(101, 111).sink(103, 11).sink(107, 10);
+      b.ground(112, 150);
+      b.row(116, 9, 'B?S?B');
+      b.e('scorpion', 122, 12).e('scorpion', 126, 12);
+      b.row(129, 8, '====').coins(129, 7, 4);
+      b.row(134, 5, '====').coins(134, 4, 4);
+      b.e('tumble', 140, 11);
+      b.row(144, 9, '?M?');
+      b.qsand(151, 158).sink(152, 11).sink(155, 10);
+      b.ground(159, 205);
+      b.e('scorpion', 164, 12).e('tumble', 172, 11);
+      b.row(165, 9, '?B?');
+      b.stairs(178, 8, 1); b.fill(186, 5, 186, 12, T.SOLID);
+      b.flag(195); b.castle(199);
+      autoDecor(A, 66);
+      return { areas: [A], start: { area: 0, x: 3, y: 12 }, checkpoint: 97 };
+    }
+  },
+  {
+    id: '1-6', name: 'EJDER KALESİ', time: 300, make() {
       const A = newArea('castle', 176), b = builder(A);
       b.fill(0, 2, 175, 3, T.CASTLE);
       b.fill(0, 8, 14, 14, T.GROUND);
